@@ -1,6 +1,6 @@
 import { PageShell } from '@/components/pages/PageShell'
 import { PageHeader } from '@/components/pages/PageHeader'
-import { PLACEHOLDER_AFFILIATIONS } from '@/lib/fixtures'
+import { getAffiliations } from '@/lib/data'
 import type { Affiliation } from '@/lib/types'
 
 export const metadata = {
@@ -9,7 +9,9 @@ export const metadata = {
 }
 
 /** Spec §8 — /affiliations, max-w-2xl. Gradient cards with a giant pixel watermark. */
-export default function AffiliationsPage() {
+export default async function AffiliationsPage() {
+  const items = await getAffiliations()
+
   return (
     <PageShell width="2xl">
       <PageHeader
@@ -18,7 +20,7 @@ export default function AffiliationsPage() {
       />
 
       <div className="space-y-4">
-        {PLACEHOLDER_AFFILIATIONS.map((a) => (
+        {items.map((a) => (
           <AffiliationCard key={a.id} item={a} />
         ))}
       </div>

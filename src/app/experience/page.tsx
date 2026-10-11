@@ -1,6 +1,6 @@
 import { PageShell } from '@/components/pages/PageShell'
 import { PageHeader } from '@/components/pages/PageHeader'
-import { PLACEHOLDER_EXPERIENCE_ORGS } from '@/lib/fixtures'
+import { getExperienceOrgs } from '@/lib/data'
 import type { ExperienceOrg } from '@/lib/types'
 
 export const metadata = {
@@ -9,7 +9,9 @@ export const metadata = {
 }
 
 /** Spec §8 — /experience, max-w-2xl. Vertical timeline with monogram + connector. */
-export default function ExperiencePage() {
+export default async function ExperiencePage() {
+  const orgs = await getExperienceOrgs()
+
   return (
     <PageShell width="2xl">
       <PageHeader
@@ -18,7 +20,7 @@ export default function ExperiencePage() {
       />
 
       <div className="space-y-0">
-        {PLACEHOLDER_EXPERIENCE_ORGS.map((org) => (
+        {orgs.map((org) => (
           <TimelineOrg key={org.id} org={org} />
         ))}
       </div>

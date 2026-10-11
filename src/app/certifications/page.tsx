@@ -1,7 +1,7 @@
 import { PageShell } from '@/components/pages/PageShell'
 import { PageHeader } from '@/components/pages/PageHeader'
-import { CertificationGrid } from '@/components/home/CertificationGrid'
-import { PLACEHOLDER_CERTS } from '@/lib/fixtures'
+import { getCertifications } from '@/lib/data'
+import type { Cert } from '@/lib/types'
 
 export const metadata = {
   title: 'Certifications',
@@ -9,7 +9,9 @@ export const metadata = {
 }
 
 /** Spec §8 — /certifications, max-w-4xl. */
-export default function CertificationsPage() {
+export default async function CertificationsPage() {
+  const certs = await getCertifications()
+
   return (
     <PageShell width="4xl">
       <PageHeader
@@ -25,7 +27,7 @@ export default function CertificationsPage() {
             Data &amp; Analytics
           </h2>
           <div className="grid grid-cols-2 gap-0 sm:grid-cols-3 lg:grid-cols-4">
-            {PLACEHOLDER_CERTS.map((c) => (
+            {certs.map((c) => (
               <CertificationCard key={c.id} cert={c} />
             ))}
           </div>
@@ -40,7 +42,7 @@ export default function CertificationsPage() {
  * inner border. Extracted here rather than reusing CertificationGrid because
  * this page uses a 4-up grid with no gap (negative-margin hover, like the reference).
  */
-function CertificationCard({ cert }: { cert: (typeof PLACEHOLDER_CERTS)[number] }) {
+function CertificationCard({ cert }: { cert: Cert }) {
   return (
     <a
       href={cert.verifyUrl ?? '#'}

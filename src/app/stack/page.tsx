@@ -1,6 +1,6 @@
 import { PageShell } from '@/components/pages/PageShell'
 import { PageHeader } from '@/components/pages/PageHeader'
-import { PLACEHOLDER_STACK_GROUPS } from '@/lib/fixtures'
+import { getStackGroups } from '@/lib/data'
 
 export const metadata = {
   title: 'Stack',
@@ -8,7 +8,9 @@ export const metadata = {
 }
 
 /** Spec §8 — /stack, max-w-3xl. Grouped sections of `.tag` pills. */
-export default function StackPage() {
+export default async function StackPage() {
+  const groups = await getStackGroups()
+
   return (
     <PageShell width="3xl">
       <PageHeader
@@ -17,7 +19,7 @@ export default function StackPage() {
       />
 
       <div className="space-y-10">
-        {PLACEHOLDER_STACK_GROUPS.map((group) => (
+        {groups.map((group) => (
           <section key={group.id} className="reveal">
             <h2 className="mb-4 font-mono text-[11px] uppercase tracking-wider text-gray-400">
               {group.title}

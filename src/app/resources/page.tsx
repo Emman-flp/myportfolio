@@ -1,6 +1,6 @@
 import { PageShell } from '@/components/pages/PageShell'
 import { PageHeader } from '@/components/pages/PageHeader'
-import { PLACEHOLDER_RESOURCE_GROUPS } from '@/lib/fixtures'
+import { getResourceGroups } from '@/lib/data'
 
 export const metadata = {
   title: 'Resources',
@@ -8,7 +8,9 @@ export const metadata = {
 }
 
 /** Spec §8 — /resources, max-w-4xl. Grouped 2-column link lists. */
-export default function ResourcesPage() {
+export default async function ResourcesPage() {
+  const groups = await getResourceGroups()
+
   return (
     <PageShell width="4xl">
       <PageHeader
@@ -19,7 +21,7 @@ export default function ResourcesPage() {
       />
 
       <div className="mt-12">
-        {PLACEHOLDER_RESOURCE_GROUPS.map((group) => (
+        {groups.map((group) => (
           <section key={group.id} className="reveal mb-11">
             <h2 className="mb-3 font-mono text-[11px] uppercase tracking-wider text-gray-400">
               {group.title}

@@ -2,17 +2,18 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { PageShell } from '@/components/pages/PageShell'
 import { Markdown } from '@/components/pages/Markdown'
-import { PLACEHOLDER_POSTS } from '@/lib/fixtures'
+import { getPost, getPosts } from '@/lib/data'
 
 type Params = { params: Promise<{ slug: string }> }
 
-export function generateStaticParams() {
-  return PLACEHOLDER_POSTS.map((p) => ({ slug: p.slug }))
+export async function generateStaticParams() {
+  const posts = await getPosts()
+  return posts.map((p) => ({ slug: p.slug }))
 }
 
 export async function generateMetadata({ params }: Params) {
   const { slug } = await params
-  const post = PLACEHOLDER_POSTS.find((p) => p.slug === slug)
+  const post = await getPost(slug)
   if (!post) return { title: 'Post' }
   return {
     title: post.title,
@@ -23,7 +24,7 @@ export async function generateMetadata({ params }: Params) {
 
 export default async function BlogPostPage({ params }: Params) {
   const { slug } = await params
-  const post = PLACEHOLDER_POSTS.find((p) => p.slug === slug)
+  const post = await getPost(slug)
   if (!post) notFound()
 
   return (

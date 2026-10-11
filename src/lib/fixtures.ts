@@ -42,6 +42,12 @@ export const PROFILE: Profile = {
 
 export const NAV_GROUPS = NAV
 
+/**
+ * Fallback returned by `getProfile()` when Supabase has no profile row yet.
+ * Aliased to PROFILE so the homepage components and the data layer agree.
+ */
+export const PLACEHOLDER_PROFILE_FALLBACK: Profile = PROFILE
+
 /* ---- homepage ----------------------------------------------------------- */
 
 export const PLACEHOLDER_POSTS: Post[] = [

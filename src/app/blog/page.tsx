@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { PageShell } from '@/components/pages/PageShell'
 import { PageHeader } from '@/components/pages/PageHeader'
-import { PLACEHOLDER_POSTS } from '@/lib/fixtures'
+import { getPosts } from '@/lib/data'
 import type { Post } from '@/lib/types'
 
 export const metadata = {
@@ -10,7 +10,9 @@ export const metadata = {
 }
 
 /** Spec §8 — /blog. Rows: thumbnail, date, title, excerpt, read time, pagination. */
-export default function BlogIndexPage() {
+export default async function BlogIndexPage() {
+  const posts = await getPosts()
+
   return (
     <PageShell width="3xl">
       <PageHeader
@@ -21,7 +23,7 @@ export default function BlogIndexPage() {
       />
 
       <div className="divide-y divide-gray-200 border-y border-gray-200">
-        {PLACEHOLDER_POSTS.map((post) => (
+        {posts.map((post) => (
           <BlogRow key={post.id} post={post} />
         ))}
       </div>

@@ -1,6 +1,6 @@
 import { PageShell } from '@/components/pages/PageShell'
 import { PageHeader } from '@/components/pages/PageHeader'
-import { PLACEHOLDER_PROJECT_DETAILS, PLACEHOLDER_PROJECT_STACK } from '@/lib/fixtures'
+import { getProjects, getProjectStack } from '@/lib/data'
 import type { ProjectDetail, ProjectStackRow } from '@/lib/types'
 
 export const metadata = {
@@ -9,7 +9,9 @@ export const metadata = {
 }
 
 /** Spec §8 — /projects, max-w-2xl. */
-export default function ProjectsPage() {
+export default async function ProjectsPage() {
+  const [projects, stack] = await Promise.all([getProjects(), getProjectStack()])
+
   return (
     <PageShell width="2xl">
       <PageHeader
@@ -18,7 +20,7 @@ export default function ProjectsPage() {
       />
 
       <div className="mb-10 space-y-4">
-        {PLACEHOLDER_PROJECT_DETAILS.map((p) => (
+        {projects.map((p) => (
           <ProjectCard key={p.id} project={p} />
         ))}
 
@@ -56,7 +58,7 @@ export default function ProjectsPage() {
       </div>
 
       <div className="project-stack overflow-hidden rounded-2xl border border-gray-200">
-        {PLACEHOLDER_PROJECT_STACK.map((row) => (
+        {stack.map((row) => (
           <ProjectStackRowView key={row.id} row={row} />
         ))}
       </div>
@@ -110,11 +112,12 @@ function ProjectCard({ project }: { project: ProjectDetail }) {
       {project.links.length > 0 && (
         <div className="mt-5 flex flex-wrap items-center gap-2.5">
           {project.links.map((l) => (
-            <a key={l.href} href={l.href} className="transition-opacity hover:opacity-80">
-              <span className="sr-only">{l.label}</span>
-              <span className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 font-mono text-[11px] text-gray-600">
-                {l.label}
-              </span>
+            <a
+              key={l.href}
+              href={l.href}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 font-mono text-[11px] text-gray-600 transition-opacity hover:opacity-80"
+            >
+              {l.label}
             </a>
           ))}
         </div>
