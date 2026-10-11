@@ -1,0 +1,2083 @@
+### SCRIPT 0  (len=1897) ###
+{"@context":"https://schema.org","@graph":[{"@type":"Person","@id":"https://bryllim.com#person","name":"Bryl Lim","url":"https://bryllim.com","image":"https://bryllim.com/images/profile.png","jobTitle":"AI \u0026 Software Engineer","description":"AI \u0026 software engineer building modern web apps, mobile apps, and generative AI.","sameAs":["https://github.com/bryllim","https://linkedin.com/in/bryllim","https://instagram.com/bryl.lim","https://x.com/bryllim_"],"knowsAbout":["Artificial Intelligence","Software Engineering","Web Development","Mobile Development","Generative AI"]},{"@type":"WebSite","@id":"https://bryllim.com#website","name":"Bryl Lim","url":"https://bryllim.com","description":"Personal site and writing by Bryl Lim about AI, software engineering, and building products.","inLanguage":"en-PH","publisher":{"@id":"https://bryllim.com#person"}},{"@type":"ProfilePage","@id":"https://bryllim.com#profile","url":"https://bryllim.com","name":"Bryl Lim — AI \u0026 Software Engineer","isPartOf":{"@id":"https://bryllim.com#website"},"mainEntity":{"@id":"https://bryllim.com#person"},"hasPart":[{"@type":"BlogPosting","headline":"Made an App that Became #1 in Multiple Countries in just One Day","url":"https://bryllim.com/posts/made-an-app-that-became-number-one-in-multiple-countries-in-just-one-day","datePublished":"2026-10-07T02:38:48+00:00","author":{"@id":"https://bryllim.com#person"}},{"@type":"BlogPosting","headline":"Being Cringe Is Part of Putting Yourself Out There","url":"https://bryllim.com/posts/being-cringe-is-part-of-putting-yourself-out-there","datePublished":"2026-08-30T08:07:51+00:00","author":{"@id":"https://bryllim.com#person"}},{"@type":"BlogPosting","headline":"Build Competitors, Not Copies","url":"https://bryllim.com/posts/build-competitors-not-copies","datePublished":"2026-08-18T11:59:58+00:00","author":{"@id":"https://bryllim.com#person"}}]}]}
+### SCRIPT 1  (len=2691) ###
+
+    (function () {
+        const KEY = 'theme';
+        const root = document.documentElement;
+        const mq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+        const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        let animT;
+        function pref() { try { const v = localStorage.getItem(KEY); return (v === 'dark' || v === 'light' || v === 'system') ? v : 'system'; } catch (e) { return 'system'; } }
+        function isDark(p) { return p === 'dark' || (p === 'system' && !!mq && mq.matches); }
+        function setClass(p) {
+            root.classList.toggle('dark', isDark(p));
+            try {
+                document.querySelectorAll('[data-theme-opt]').forEach(function (el) {
+                    el.classList.toggle('is-active', el.getAttribute('data-theme-opt') === p);
+                });
+            } catch (e) {}
+        }
+        function crossfade(p) {                          // coordinated CSS color transition
+            root.classList.add('theme-anim');
+            setClass(p);
+            clearTimeout(animT);
+            animT = setTimeout(function () { root.classList.remove('theme-anim'); }, 520);
+        }
+        function reveal(p, x, y) {                        // circular wipe from (x,y) via View Transitions
+            const r = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
+            const vt = root.__vt = document.startViewTransition(function () { setClass(p); });
+            vt.ready.then(function () {
+                root.animate(
+                    { clipPath: ['circle(0px at ' + x + 'px ' + y + 'px)', 'circle(' + r + 'px at ' + x + 'px ' + y + 'px)'] },
+                    { duration: 540, easing: 'cubic-bezier(.32,.08,.24,1)', pseudoElement: '::view-transition-new(root)' }
+                );
+            }).catch(function () {});
+        }
+        window.setTheme = function (p, ev) {
+            try { localStorage.setItem(KEY, p); } catch (e) {}
+            if (isDark(p) === root.classList.contains('dark')) { setClass(p); return; }   // no visual flip, just sync active state
+            if (reduce || !document.startViewTransition) { crossfade(p); return; }
+            const x = (ev && ev.clientX) || innerWidth, y = (ev && ev.clientY) || innerHeight;
+            reveal(p, x, y);
+        };
+        setClass(pref());                                // no-FOUC: instant on load, follow device by default
+        if (mq) mq.addEventListener('change', function () { if (pref() === 'system') crossfade('system'); });
+        document.addEventListener('DOMContentLoaded', function () { setClass(pref()); });
+    })();
+
+### SCRIPT 2  (len=11673) ###
+
+    // -- Ask overlay: ?K (Mac) / Alt+K (Windows) --
+    const askOverlay = document.getElementById('askOverlay');
+    const askInput = document.getElementById('askInput');
+    const askText = document.getElementById('askText');
+    const askContent = askOverlay.querySelector('.ask-content');
+    const askTitle = askOverlay.querySelector('.ask-title');
+    const askCaret = askOverlay.querySelector('.ask-caret');
+    const askLoader = document.getElementById('askLoader');
+    const askHead = askOverlay.querySelector('.ask-head');
+    const askField = askOverlay.querySelector('.ask-field');
+    const askBubble = document.getElementById('askBubble');
+    const askBubbleText = document.getElementById('askBubbleText');
+    const askReveal = document.getElementById('askReveal');
+    const ASK_DEFAULT_TITLE = 'what do you want to ask?';
+    let askSeq = 0;          // bumped on open/close to cancel in-flight sequences
+    let askBusy = false;     // true while the "answer" sequence runs
+
+    const askSleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+    function askResetState() {
+        askBusy = false;
+        askInput.removeAttribute('readonly');
+        askInput.value = '';
+        askText.textContent = '';
+        askCaret.style.display = '';
+        askField.style.display = '';
+        askBubble.classList.remove('is-on');
+        askBubble.style.opacity = '';
+        askBubble.style.filter = '';
+        askBubble.style.transition = '';
+        askBubbleText.textContent = '';
+        askTitle.classList.remove('is-small');
+        askHead.classList.remove('is-shimmer');
+        askLoader.classList.remove('is-on');
+        askTitle.style.transition = '';
+        askTitle.style.opacity = '';
+        askTitle.style.transform = '';
+        askTitle.style.filter = '';
+        askTitle.textContent = ASK_DEFAULT_TITLE;
+        askReveal.style.display = 'none';
+        askReveal.innerHTML = '';
+        askReveal.style.opacity = '';
+        askReveal.style.transition = '';
+        askHead.style.display = '';
+        askHead.style.opacity = '';
+        askHead.style.transition = '';
+        askHead.style.filter = '';
+    }
+
+    async function askSetTitle(text, pulse) {
+        askTitle.style.transition = 'opacity .25s ease, transform .3s cubic-bezier(.16,1,.3,1)';
+        askTitle.style.opacity = '0';
+        askTitle.style.transform = 'translateY(6px)';
+        await askSleep(250);
+        askTitle.textContent = text;
+        if (pulse) {
+            askTitle.classList.add('is-small');
+            askLoader.classList.add('is-on');
+            askHead.classList.add('is-shimmer');
+            askTitle.style.transition = '';
+            askTitle.style.opacity = '';
+            askTitle.style.transform = '';
+        } else {
+            askLoader.classList.remove('is-on');
+            askHead.classList.remove('is-shimmer');
+            askTitle.classList.add('is-small');
+            askTitle.style.opacity = '1';
+            askTitle.style.transform = 'none';
+            await askSleep(300);
+        }
+    }
+
+    // -- Sniff what the browser exposes (real data) --
+    function detectBrowser(ua) {
+        if (/Edg\//.test(ua)) return 'Edge ' + ((ua.match(/Edg\/(\d+)/) || [])[1] || '');
+        if (/OPR\//.test(ua)) return 'Opera ' + ((ua.match(/OPR\/(\d+)/) || [])[1] || '');
+        if (/Firefox\//.test(ua)) return 'Firefox ' + ((ua.match(/Firefox\/(\d+)/) || [])[1] || '');
+        if (/Chrome\//.test(ua)) return 'Chrome ' + ((ua.match(/Chrome\/(\d+)/) || [])[1] || '');
+        if (/Safari\//.test(ua) && /Version\//.test(ua)) return 'Safari ' + ((ua.match(/Version\/(\d+)/) || [])[1] || '');
+        return 'your browser';
+    }
+    function detectOS(ua) {
+        if (/Windows/.test(ua)) return 'Windows';
+        if (/iPhone|iPad|iPod/.test(ua)) return 'iOS';
+        if (/Mac OS X/.test(ua)) return 'macOS';
+        if (/Android/.test(ua)) return 'Android';
+        if (/Linux/.test(ua)) return 'Linux';
+        return 'your device';
+    }
+    async function collectData() {
+        const ua = navigator.userAgent;
+        const data = {
+            ip: '', city: '', region: '', country: '', isp: '', lat: '', lon: '',
+            os: detectOS(ua),
+            browser: detectBrowser(ua),
+            screen: screen.width + '×' + screen.height,
+            cores: navigator.hardwareConcurrency || '?',
+            ramNum: navigator.deviceMemory || null,
+            lang: navigator.language || (navigator.languages && navigator.languages[0]) || '—',
+            tz: (Intl.DateTimeFormat().resolvedOptions().timeZone) || '—',
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            conn: (navigator.connection && navigator.connection.effectiveType) || '',
+            referrer: '',
+        };
+        try { if (document.referrer) data.referrer = new URL(document.referrer).hostname; } catch (e) {}
+        try {
+            const ctrl = new AbortController();
+            const to = setTimeout(() => ctrl.abort(), 3500);
+            const res = await fetch('https://ipwho.is/', { signal: ctrl.signal });
+            clearTimeout(to);
+            const j = await res.json();
+            if (j && j.success !== false) {
+                data.ip = j.ip || '';
+                data.city = j.city || '';
+                data.region = j.region || '';
+                data.country = j.country || '';
+                data.isp = (j.connection && j.connection.isp) || j.org || '';
+                data.lat = j.latitude; data.lon = j.longitude;
+                if ((!data.tz || data.tz === '—') && j.timezone && j.timezone.id) data.tz = j.timezone.id;
+            }
+        } catch (e) {}
+        return data;
+    }
+
+    // -- The plot twist: interrupt loading and reveal their data --
+    async function askInterrupt(data, mySeq) {
+        askBubble.style.transition = 'opacity .55s ease, filter .55s ease';
+        askBubble.style.filter = 'blur(8px)';
+        askBubble.style.opacity = '0';
+        askHead.style.transition = 'opacity .55s ease, filter .55s ease';
+        askHead.style.filter = 'blur(8px)';
+        askHead.style.opacity = '0';
+        await askSleep(600);
+        if (mySeq !== askSeq) return;
+
+        askBubble.classList.remove('is-on');
+        askBubble.style.transition = '';
+        askBubble.style.filter = '';
+        askBubble.style.opacity = '';
+        askLoader.classList.remove('is-on');
+        askHead.classList.remove('is-shimmer');
+        askTitle.textContent = '';
+        askTitle.classList.remove('is-small');
+        askTitle.style.opacity = '';
+        askTitle.style.transform = '';
+        askTitle.style.filter = '';
+        askHead.style.transition = '';
+        askHead.style.filter = '';
+        askHead.style.opacity = '';
+        await askSleep(300);
+        if (mySeq !== askSeq) return;
+
+        const loc = [data.city, data.region, data.country].filter(Boolean).join(', ');
+        const msgs = [
+            'before i answer',
+            'here is what your browser already shared the moment you opened this site',
+        ];
+        if (loc) msgs.push('you are currently in ' + loc);
+        if (data.ip) msgs.push('your public ip address is ' + data.ip);
+        if (data.isp) msgs.push('you are connected through ' + data.isp);
+        if (data.lat && data.lon) msgs.push('your approximate coordinates are around ' + (+data.lat).toFixed(2) + ', ' + (+data.lon).toFixed(2));
+        msgs.push('you are on a ' + data.os + ' device with ' + data.cores + ' processor cores' + (data.ramNum ? ' and ' + data.ramNum + 'gb of memory' : ''));
+        msgs.push('you are browsing with ' + data.browser + ' set to ' + data.lang);
+        msgs.push('your timezone is ' + data.tz + ' and it is around ' + String(data.time).toLowerCase() + ' where you are');
+        if (data.conn) msgs.push('you are on a ' + data.conn + ' connection');
+        if (data.referrer) msgs.push('you arrived here from ' + data.referrer);
+        msgs.push('none of this needed your permission');
+        msgs.push('your browser shares it with every website you open, automatically');
+        msgs.push('so be mindful of what you click, and who you trust online');
+
+        for (const m of msgs) {
+            await askSetTitle(m, false);
+            if (mySeq !== askSeq) return;
+            await askSleep(2500);
+            if (mySeq !== askSeq) return;
+        }
+    }
+
+    async function askSubmit() {
+        if (askBusy) return;
+        const query = askInput.value.trim();
+        if (!query) return;
+
+        askBusy = true;
+        const mySeq = askSeq;
+        askInput.setAttribute('readonly', '');
+        askCaret.style.display = 'none';
+
+        askBubbleText.textContent = query;
+        askBubble.classList.add('is-on');
+        askField.style.display = 'none';
+
+        const dataPromise = collectData();
+
+        await askSetTitle('thinking...', true);
+        await askSleep(1900);
+        if (mySeq !== askSeq) return;
+
+        await askSetTitle('analyzing...', true);
+        await askSleep(1500);
+        if (mySeq !== askSeq) return;
+
+        const data = await dataPromise;
+        if (mySeq !== askSeq) return;
+        await askInterrupt(data, mySeq);
+        if (mySeq !== askSeq) return;
+
+        await askSetTitle('as for your question', false);
+        await askSleep(2000);
+        if (mySeq !== askSeq) return;
+
+        await askSetTitle("i don't want to waste tokens on that, search for it yourself :)", false);
+        await askSleep(2200);
+        if (mySeq !== askSeq) return;
+
+        window.open('https://www.google.com/search?q=' + encodeURIComponent(query), '_blank', 'noopener');
+    }
+
+    function openAsk() {
+        askSeq++;
+        askResetState();
+        askContent.style.transition = '';
+        askContent.style.opacity = '';
+        askContent.style.transform = '';
+        askOverlay.classList.add('is-visible');
+        document.documentElement.style.overflow = 'hidden';
+        requestAnimationFrame(() => askOverlay.classList.add('is-open'));
+        setTimeout(() => askInput.focus(), 60);
+    }
+    function closeAsk() {
+        askSeq++;
+        document.documentElement.style.overflow = '';
+        askInput.blur();
+        askContent.style.transition = 'opacity .22s ease, transform .22s ease';
+        askContent.style.opacity = '0';
+        askContent.style.transform = 'translateY(6px)';
+        setTimeout(() => askOverlay.classList.remove('is-open'), 210);
+        setTimeout(() => {
+            askOverlay.classList.remove('is-visible');
+            askContent.style.transition = '';
+            askContent.style.opacity = '';
+            askContent.style.transform = '';
+            askResetState();
+        }, 640);
+    }
+    function focusAsk() { if (!askBusy) askInput.focus(); }
+    function askIsOpen() { return askOverlay.classList.contains('is-visible'); }
+
+    askInput.addEventListener('input', () => { askText.textContent = askInput.value; });
+    askInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); askSubmit(); }
+    });
+
+    document.addEventListener('keydown', (e) => {
+        if ((e.metaKey || e.altKey) && e.code === 'KeyK') {
+            e.preventDefault();
+            askIsOpen() ? closeAsk() : openAsk();
+            return;
+        }
+        if (e.key === 'Escape' && askIsOpen()) closeAsk();
+    });
+
+    // Show the right modifier symbol in every sidebar hint (desktop + mobile).
+    (function () {
+        const isMac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent || '');
+        document.querySelectorAll('.ask-mod-key').forEach((el) => { el.textContent = isMac ? '?' : 'Alt'; });
+    })();
+
+### SCRIPT 3  (len=19094) ###
+
+    (function () {
+        const wrap = document.getElementById('pgWrap');
+        const box = document.getElementById('pgBox');
+        const canvas = document.getElementById('pgCanvas');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+
+        // -- config (ported from ~/Developer/game) --
+        const CELL = 32, SCALE = 2;                 // sprite-sheet cell / draw scale (player ˜ 64px)
+        const TILE = 36;                            // visual grid + furniture unit (smaller so furniture ˜ player)
+        const SUB = 2, STEP = TILE / SUB;           // 2×2 movement sub-cells per tile ? finer movement (STEP = 18px)
+        const MOVE_SPEED = 95;                      // ms per movement step (one STEP)
+        const IDLE_SPEED = 800, WALK_SPEED = 150;
+        const ROW = { IDLE_DOWN: 0, IDLE_RIGHT: 32, IDLE_UP: 64, WALK_DOWN: 96, WALK_RIGHT: 128, WALK_UP: 160 };
+        const MAP_W = 18, MAP_H = 18;               // map size in tiles
+        const MAP_CW = MAP_W * SUB, MAP_CH = MAP_H * SUB;   // movement grid in sub-cells (36×36)
+        const DIRS = ['up', 'down', 'left', 'right'];
+        const NPC_ALPHA = 0.6;      // "other players" a bit lighter than the local player
+
+        let VIEW_W = 460, VIEW_H = 380;
+
+        // -- sprites --
+        const charImg = new Image(), shadowImg = new Image();
+        const furn = {};
+        const FURN_BASE = "https://bryllim.com/images/game/";
+        let assetsReady = false, loadedCt = 0;
+        function assetLoaded() { if (++loadedCt >= 2) assetsReady = true; }
+        function ensureAssets() {
+            if (charImg.src) return;
+            charImg.onload = assetLoaded; charImg.src = "https://bryllim.com/images/game/character.png";
+            shadowImg.onload = assetLoaded; shadowImg.src = "https://bryllim.com/images/game/character_shadow.png";
+            ['desk', 'table', 'computer', 'big_table', 'cabinet_1', 'cabinet_2', 'cabinet_3'].forEach((n) => {
+                const img = new Image(); img.src = FURN_BASE + n + '.png'; furn[n] = img;
+            });
+        }
+
+        // -- placed furniture (footprint in tiles) + collision (in sub-cells) --
+        const FOOT = { desk: { w: 2, h: 1 }, table: { w: 2, h: 1 }, bigtable: { w: 2, h: 2 }, cabinet: { w: 1, h: 1 } };
+        const OBJECTS = [
+            { type: 'desk', x: 3, y: 2 },
+            { type: 'desk', x: 13, y: 2 },
+            { type: 'cabinet', x: 2, y: 6, v: 1 },
+            { type: 'cabinet', x: 15, y: 6, v: 2 },
+            { type: 'table', x: 4, y: 14, computer: true },
+            { type: 'bigtable', x: 11, y: 12 },
+            { type: 'cabinet', x: 14, y: 15, v: 3 },
+        ];
+        // block the footprint in sub-cells, but leave the BOTTOM sub-row walkable so the player can
+        // stand at (and tuck behind) the base of each object.
+        const blocked = new Set();
+        for (const o of OBJECTS) {
+            const f = FOOT[o.type];
+            const ox = o.x * SUB, oy = o.y * SUB, fw = f.w * SUB, fh = f.h * SUB;
+            for (let yy = 0; yy < fh - 1; yy++) for (let xx = 0; xx < fw; xx++) blocked.add((ox + xx) + ',' + (oy + yy));
+        }
+        function furnImg(o) {
+            if (o.type === 'desk') return furn.desk;
+            if (o.type === 'table') return furn.table;
+            if (o.type === 'bigtable') return furn.big_table;
+            return furn['cabinet_' + (o.v || 1)];
+        }
+
+        // -- audio (step / collision) — unlock on first gesture --
+        const SFX_VOLUME_MULTIPLIER = 6;
+        const SFX = { step: new Audio("https://bryllim.com/audio/game/step.wav"), collision: new Audio("https://bryllim.com/audio/game/collision.wav") };
+        Object.values(SFX).forEach((a) => { a.volume = Math.min(1, 0.13 * SFX_VOLUME_MULTIPLIER); a.preload = 'auto'; });
+        let sfxUnlocked = false, lastStep = 0, lastColl = 0, lastCollKey = '';
+        function unlockSfx() {
+            if (sfxUnlocked) return; sfxUnlocked = true;
+            Object.values(SFX).forEach((a) => {
+                try { a.muted = true; const p = a.play(); if (p && p.then) p.then(() => { a.pause(); a.currentTime = 0; a.muted = false; }).catch(() => { a.muted = false; }); } catch (e) {}
+            });
+        }
+        function playSfx(name) { if (!sfxUnlocked) return; const a = SFX[name]; if (!a) return; try { a.currentTime = 0; a.play(); } catch (e) {} }
+        function playStep(now) { if (now - lastStep >= 70) { lastStep = now; playSfx('step'); } }
+        function playCollision(key) { const now = Date.now(); if (now - lastColl < 350 && key === lastCollKey) return; lastColl = now; lastCollKey = key; playSfx('collision'); }
+
+        // -- actors (local player + simulated others) — positions in sub-cell coords --
+        function makeActor(cx, cy) {
+            return { cellX: cx, cellY: cy, pixelX: cx * STEP, pixelY: cy * STEP, direction: 'down', isMoving: false, animationFrame: 0, animationTime: 0, moveAnim: null, stepCount: 0 };
+        }
+        function pickStart() {                       // nearest walkable sub-cell to map centre
+            const ccx = (MAP_CW / 2) | 0, ccy = (MAP_CH / 2) | 0;
+            let best = null, bestD = Infinity;
+            for (let y = 0; y < MAP_CH; y++) for (let x = 0; x < MAP_CW; x++) {
+                if (blocked.has(x + ',' + y)) continue;
+                const d = (x - ccx) * (x - ccx) + (y - ccy) * (y - ccy);
+                if (d < bestD) { bestD = d; best = [x, y]; }
+            }
+            return best || [ccx, ccy];
+        }
+        const _start = pickStart();
+        const player = makeActor(_start[0], _start[1]);
+        let npcs = [];
+        let actors = [player];
+        let npcsSpawned = false;
+        let pgName = '';
+        let lastMove = 0, raf = null, running = false, lastT = 0;
+        const keys = { w: false, a: false, s: false, d: false };
+
+        function clamp(v, lo, hi) { return v < lo ? lo : (v > hi ? hi : v); }
+
+        function theme() {
+            const dark = document.documentElement.classList.contains('dark');
+            return dark
+                ? { grid: 'rgba(240,240,245,0.09)', name: '#f4f4f5', npcName: '#a6a6ad', nameShadow: 'rgba(0,0,0,.85)', objShadow: 'rgba(0,0,0,0.32)' }
+                : { grid: 'rgba(10,10,12,0.08)', name: '#0a0a0a', npcName: '#6d6d72', nameShadow: 'rgba(255,255,255,.9)', objShadow: 'rgba(0,0,0,0.14)' };
+        }
+
+        function frame(actor) {
+            const d = actor.direction, moving = actor.isMoving;
+            let rowY, count;
+            if (moving) { rowY = d === 'up' ? ROW.WALK_UP : d === 'down' ? ROW.WALK_DOWN : ROW.WALK_RIGHT; count = 4; }
+            else { rowY = d === 'up' ? ROW.IDLE_UP : d === 'down' ? ROW.IDLE_DOWN : ROW.IDLE_RIGHT; count = 2; }
+            const cf = Math.floor(actor.animationFrame || 0) % count;
+            return { x: cf * CELL, y: rowY, flip: d === 'left' };
+        }
+
+        function canMoveTo(cx, cy, mover) {
+            if (cx < 0 || cx >= MAP_CW || cy < 0 || cy >= MAP_CH) return false;
+            if (blocked.has(cx + ',' + cy)) return false;
+            // sprites are 64px on an 18px sub-grid — keep actors ~1 tile apart so they never stack/merge
+            for (const a of actors) { if (a === mover) continue; if (Math.abs(a.cellX - cx) < SUB && Math.abs(a.cellY - cy) < SUB) return false; }
+            return true;
+        }
+        function startSlide(actor, tPX, tPY) {
+            const sX = actor.pixelX, sY = actor.pixelY, st = performance.now();
+            (function anim(t) {
+                const p = Math.min((t - st) / MOVE_SPEED, 1), e = 1 - Math.pow(1 - p, 2);
+                actor.pixelX = sX + (tPX - sX) * e; actor.pixelY = sY + (tPY - sY) * e;
+                if (p < 1) actor.moveAnim = requestAnimationFrame(anim);
+                else { actor.pixelX = tPX; actor.pixelY = tPY; actor.moveAnim = null; }
+            })(st);
+        }
+
+        // local player — keyboard driven
+        function handleMovement() {
+            let dir = null;
+            if (keys.s) dir = 'down';
+            if (keys.d) dir = 'right';
+            if (keys.w) dir = 'up';
+            if (keys.a) dir = 'left';
+            if (!dir) { player.isMoving = false; return; }
+            if (player.moveAnim) { player.isMoving = true; return; }
+            player.direction = dir;
+            const atTarget = Math.abs(player.pixelX - player.cellX * STEP) < 0.5 && Math.abs(player.pixelY - player.cellY * STEP) < 0.5;
+            if (!atTarget) { player.isMoving = true; return; }
+            const now = Date.now();
+            if (now - lastMove < MOVE_SPEED * 0.3) return;
+            let nx = player.cellX, ny = player.cellY;
+            if (dir === 'up') ny--; else if (dir === 'down') ny++; else if (dir === 'left') nx--; else nx++;
+            if (!canMoveTo(nx, ny, player)) { player.isMoving = false; playCollision(dir); return; }
+            player.isMoving = true; player.cellX = nx; player.cellY = ny; lastMove = now;
+            player.stepCount++; if (player.stepCount % SUB === 0) playStep(now);   // ~one footstep per tile crossed
+            startSlide(player, nx * STEP, ny * STEP);
+        }
+
+        // simulated others — random wander AI (natural pauses + short bursts)
+        function npcStep(npc) {
+            if (npc.moveAnim) { npc.isMoving = true; return; }
+            const atTarget = Math.abs(npc.pixelX - npc.cellX * STEP) < 0.5 && Math.abs(npc.pixelY - npc.cellY * STEP) < 0.5;
+            if (!atTarget) { npc.isMoving = true; return; }
+            const now = Date.now(), b = npc.brain;
+            if (now < b.pauseUntil) { npc.isMoving = false; return; }
+            if (b.steps <= 0 || !b.dir) {
+                if (Math.random() < 0.34) { b.pauseUntil = now + 700 + Math.random() * 2600; b.dir = null; npc.isMoving = false; return; }
+                b.dir = DIRS[(Math.random() * 4) | 0];
+                b.steps = SUB * (1 + ((Math.random() * 4) | 0));    // whole-tile bursts on the finer grid
+            }
+            npc.direction = b.dir;
+            let nx = npc.cellX, ny = npc.cellY;
+            if (b.dir === 'up') ny--; else if (b.dir === 'down') ny++; else if (b.dir === 'left') nx--; else nx++;
+            if (!canMoveTo(nx, ny, npc)) { b.steps = 0; b.dir = null; b.pauseUntil = now + 250 + Math.random() * 800; npc.isMoving = false; return; }
+            npc.isMoving = true; npc.cellX = nx; npc.cellY = ny; b.steps--;
+            startSlide(npc, nx * STEP, ny * STEP);
+        }
+
+        function recentChatNames() {
+            const els = document.querySelectorAll('#chatMessages .chat-item .chat-name-txt');
+            const names = [];
+            for (let i = els.length - 1; i >= 0 && names.length < 5; i--) {
+                const n = (els[i].textContent || '').trim();
+                if (n && n !== pgName && !names.includes(n)) names.push(n);
+            }
+            return names;
+        }
+        function spawnNPCs() {
+            const names = recentChatNames();
+            const placed = [[player.cellX, player.cellY]];     // keep spawns ~1 tile apart from every actor
+            const farEnough = (tx, ty) => placed.every(([px, py]) => Math.abs(px - tx) >= SUB || Math.abs(py - ty) >= SUB);
+            npcs = [];
+            for (let i = 0; i < 5; i++) {
+                let tx = 1, ty = 1, tries = 0, ok = false;
+                do { tx = 1 + ((Math.random() * (MAP_CW - 2)) | 0); ty = 1 + ((Math.random() * (MAP_CH - 2)) | 0); tries++; ok = !blocked.has(tx + ',' + ty) && farEnough(tx, ty); } while (!ok && tries < 300);
+                placed.push([tx, ty]);
+                const npc = makeActor(tx, ty);
+                npc.direction = DIRS[(Math.random() * 4) | 0];
+                npc.animationFrame = (Math.random() * 4) | 0;
+                npc.name = names[i] || ('guest ' + (i + 1));
+                npc.brain = { dir: null, steps: 0, pauseUntil: Date.now() + Math.random() * 1800 };
+                npcs.push(npc);
+            }
+            actors = [player, ...npcs];
+        }
+        function refreshNpcNames() {
+            const names = recentChatNames();
+            if (!names.length) return;
+            npcs.forEach((n, i) => { if (names[i]) n.name = names[i]; });
+        }
+
+        function updateAnim(dt) {
+            for (const a of actors) {
+                a.animationTime += dt;
+                if (a.animationTime >= (a.isMoving ? WALK_SPEED : IDLE_SPEED)) { a.animationFrame = (a.animationFrame || 0) + 1; a.animationTime = 0; }
+            }
+        }
+
+        function drawFrame(img, f, x, y, w, h) {
+            if (f.flip) { ctx.save(); ctx.scale(-1, 1); ctx.drawImage(img, f.x, f.y, CELL, CELL, -x - w, y, w, h); ctx.restore(); }
+            else ctx.drawImage(img, f.x, f.y, CELL, CELL, x, y, w, h);
+        }
+
+        function actorDraw(a, camX, camY) {
+            const isPlayer = a === player, f = frame(a), w = CELL * SCALE, h = CELL * SCALE;
+            a._dx = Math.round(a.pixelX + (STEP - w) / 2 - camX);       // centre the (larger) sprite on its sub-cell
+            a._dy = Math.round(a.pixelY + (STEP - h) / 2 - camY);
+            if (shadowImg.complete) { ctx.save(); ctx.globalAlpha = isPlayer ? 0.9 : 0.45; drawFrame(shadowImg, f, a._dx, a._dy, w, h); ctx.restore(); }
+            ctx.save(); ctx.globalAlpha = isPlayer ? 1 : NPC_ALPHA; drawFrame(charImg, f, a._dx, a._dy, w, h); ctx.restore();
+        }
+        function actorName(a, c) {
+            if (!a.name) return;
+            const isPlayer = a === player, w = CELL * SCALE;
+            ctx.save();
+            ctx.font = '600 11px "Geist Mono", ui-monospace, monospace';
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.shadowColor = c.nameShadow; ctx.shadowBlur = 3; ctx.shadowOffsetY = 1;
+            ctx.globalAlpha = isPlayer ? 1 : 0.9;
+            ctx.fillStyle = isPlayer ? c.name : c.npcName;
+            ctx.fillText(a.name, a._dx + w / 2, a._dy + 8);
+            ctx.restore();
+        }
+        function drawObject(o, camX, camY, c) {
+            const img = furnImg(o); if (!img || !img.complete) return;
+            const f = FOOT[o.type];
+            const px = Math.round(o.x * TILE - camX), py = Math.round(o.y * TILE - camY);
+            const w = f.w * TILE, h = f.h * TILE;
+            ctx.fillStyle = c.objShadow; ctx.fillRect(px + 2, py + 2, w, h);
+            ctx.drawImage(img, px, py, w, h);
+            if (o.computer && furn.computer && furn.computer.complete) ctx.drawImage(furn.computer, px, py - TILE / 2, 2 * TILE, TILE);
+        }
+
+        function render() {
+            const c = theme();
+            ctx.imageSmoothingEnabled = false;
+            const camX = clamp(player.pixelX + STEP / 2 - VIEW_W / 2, 0, MAP_W * TILE - VIEW_W);
+            const camY = clamp(player.pixelY + STEP / 2 - VIEW_H / 2, 0, MAP_H * TILE - VIEW_H);
+
+            ctx.clearRect(0, 0, VIEW_W, VIEW_H);   // transparent — blends with the chat backdrop
+
+            ctx.strokeStyle = c.grid; ctx.lineWidth = 1;
+            ctx.beginPath();
+            for (let x = Math.floor(camX / TILE) * TILE; x <= camX + VIEW_W; x += TILE) { const sx = Math.round(x - camX) + 0.5; ctx.moveTo(sx, 0); ctx.lineTo(sx, VIEW_H); }
+            for (let y = Math.floor(camY / TILE) * TILE; y <= camY + VIEW_H; y += TILE) { const sy = Math.round(y - camY) + 0.5; ctx.moveTo(0, sy); ctx.lineTo(VIEW_W, sy); }
+            ctx.stroke();
+
+            // depth: interleave actors + furniture by their front-edge world Y, so an actor standing
+            // at/below a piece's base draws in FRONT of it, and behind it when north of the base.
+            const drawables = [];
+            if (assetsReady) for (const a of actors) drawables.push({ y: a.pixelY + STEP + 0.5, run: () => actorDraw(a, camX, camY) });
+            for (const o of OBJECTS) drawables.push({ y: (o.y + FOOT[o.type].h) * TILE, run: () => drawObject(o, camX, camY, c) });
+            drawables.sort((p, q) => p.y - q.y);
+            for (const d of drawables) d.run();
+
+            // names always on top so a label is never hidden behind furniture
+            if (assetsReady) { const order = actors.slice().sort((a, b) => a.pixelY - b.pixelY); for (const a of order) actorName(a, c); }
+        }
+
+        function loop(t) {
+            const dt = Math.min(64, t - lastT); lastT = t;
+            handleMovement();
+            for (const npc of npcs) npcStep(npc);
+            updateAnim(dt); render();
+            if (running) raf = requestAnimationFrame(loop);
+        }
+
+        function setupCanvas() {
+            const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+            const cw = canvas.clientWidth, ch = canvas.clientHeight;
+            if (!cw || !ch) return false;
+            VIEW_W = cw; VIEW_H = ch;
+            canvas.width = Math.round(cw * dpr); canvas.height = Math.round(ch * dpr);
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            return true;
+        }
+
+        function start() {
+            ensureAssets();
+            if (!setupCanvas()) return;
+            if (pgName) player.name = pgName;
+            if (!npcsSpawned) { spawnNPCs(); npcsSpawned = true; setTimeout(refreshNpcNames, 1600); }
+            else refreshNpcNames();
+            if (running) return;
+            running = true; lastT = performance.now(); raf = requestAnimationFrame(loop);
+        }
+        function stop() {
+            running = false; if (raf) cancelAnimationFrame(raf); raf = null;
+            keys.w = keys.a = keys.s = keys.d = false;
+            box.classList.remove('is-playing');
+        }
+
+        function keyFor(e) {
+            switch (e.key) {
+                case 'w': case 'W': case 'ArrowUp': return 'w';
+                case 'a': case 'A': case 'ArrowLeft': return 'a';
+                case 's': case 'S': case 'ArrowDown': return 's';
+                case 'd': case 'D': case 'ArrowRight': return 'd';
+            }
+            return null;
+        }
+        canvas.addEventListener('keydown', (e) => { const k = keyFor(e); if (k) { e.preventDefault(); keys[k] = true; } });
+        canvas.addEventListener('keyup', (e) => { const k = keyFor(e); if (k) { e.preventDefault(); keys[k] = false; } });
+        canvas.addEventListener('focus', () => box.classList.add('is-playing'));
+        canvas.addEventListener('blur', () => { keys.w = keys.a = keys.s = keys.d = false; box.classList.remove('is-playing'); });
+        canvas.addEventListener('click', () => { unlockSfx(); canvas.focus(); });
+        window.addEventListener('resize', () => { if (running) setupCanvas(); });
+
+        window.playgroundShow = function (name) {
+            if (typeof name === 'string' && name.trim()) { pgName = name.trim(); player.name = pgName; }
+            wrap.classList.add('is-on');
+            wrap.setAttribute('aria-hidden', 'false');
+            requestAnimationFrame(start);
+        };
+        window.playgroundHide = function () {
+            wrap.classList.remove('is-on');
+            wrap.setAttribute('aria-hidden', 'true');
+            if (document.activeElement === canvas) canvas.blur();
+            stop();
+        };
+    })();
+
+### SCRIPT 4  (len=30524) ###
+
+    (function () {
+        const overlay = document.getElementById('chatOverlay');
+        if (!overlay) return;
+        const messagesEl = document.getElementById('chatMessages');
+        const countEl = document.getElementById('chatCount');
+        const form = document.getElementById('chatForm');
+        const inputEl = document.getElementById('chatInput');
+        const promptEl = document.getElementById('chatPrompt');
+        const sendEl = document.getElementById('chatSend');
+        const CSRF = '9MVYG2DrREiCV6t8NmHGIQxiFUNKbeYVHklME3fd';
+        const IS_AUTHENTICATED = false;
+        let lastId = 0;
+        let pollTimer = null;
+        let closeT1 = null, closeT2 = null;
+        let phase = 'name';
+        let clientId = '';
+        let chatName = '';
+        let myDevice = '';
+        let myLocation = '';
+        let identityPromise = null;
+        const MAX_VISIBLE = 60;       // keep a scrollable history in the DOM (bounded)
+        let totalCount = 0;           // total messages (for the count label)
+        const SEND_COOLDOWN = 8000;   // min ms between a user's own messages (anti-spam)
+        const KIND_URL = 'https://en.wikipedia.org/wiki/Netiquette';
+        const BAD_LOOSE = ["fuck","motherfuck","shit","bullshit","bitch","asshole","cunt","faggot","nigger","nigga","dickhead","jackass","dumbass","cocksuck","dipshit","putangina","putanginamo","tangina","taena","tarantado","gago","gaga","ulol","kingina","kupal","pakshet","pakyu","hinayupak","hindot","hindut","buwiset","bwisit","putang ina","tang ina","walang hiya","hayop ka","gunggong"];
+        const BAD_STRICT = ["ass","dick","cock","prick","slut","whore","twat","wank","piss","bastard","pussy","puta","tanga","bobo","tite","titi","puki","pekpek","jakol","leche","peste","lintik","ungas","inutil"];
+        const LINK_TLDS = ["com","net","org","io","co","dev","app","ai","xyz","info","biz","link","site","online","store","shop","page","live","tech","cloud","click","me","ly","gg","gl","be","to","tv","fm","sh","cc","ws","ph","uk","ca","au","de","jp","eu","edu","gov","top","vip","pro","fun","icu"];
+        let lastSent = 0;
+        let hintTimer = null;
+        let timeTimer = null;
+        try { clientId = localStorage.getItem('visitorId') || ''; } catch (e) {}
+        try { chatName = localStorage.getItem('chatName') || ''; } catch (e) {}
+
+        function fallbackVisitorId() {
+            if (clientId) return clientId;
+            try {
+                clientId = localStorage.getItem('visitorId') || '';
+                if (!clientId) {
+                    clientId = (window.crypto && crypto.randomUUID) ? crypto.randomUUID()
+                        : (Date.now().toString(36) + Math.random().toString(36).slice(2));
+                    localStorage.setItem('visitorId', clientId);
+                    localStorage.setItem('visitorIdSource', 'local');
+                }
+            } catch (e) {
+                clientId = Date.now().toString(36) + Math.random().toString(36).slice(2);
+            }
+            return clientId;
+        }
+
+        async function resolveClientId() {
+            try {
+                if (window.resolveVisitorId) {
+                    const id = await window.resolveVisitorId();
+                    if (id) clientId = id;
+                }
+            } catch (e) {}
+            return clientId || fallbackVisitorId();
+        }
+
+        function setStoredChatName(name) {
+            chatName = name;
+            try { localStorage.setItem('chatName', chatName); } catch (e) {}
+        }
+
+        function applyRememberedName(name) {
+            if (!name || chatName) return;
+            if (phase === 'name' && inputEl.value.trim()) return;
+            setStoredChatName(name);
+            if (overlay.classList.contains('is-visible')) setPhase('message');
+        }
+
+        async function loadRememberedIdentity() {
+            if (identityPromise) return identityPromise;
+            identityPromise = (async () => {
+                const id = await resolveClientId();
+                if (!id || chatName) return;
+                try {
+                    const res = await fetch('/chat/identity?client_id=' + encodeURIComponent(id), {
+                        headers: { 'Accept': 'application/json' },
+                        cache: 'no-store',
+                    });
+                    if (!res.ok) return;
+                    const data = await res.json();
+                    applyRememberedName(data.name || '');
+                } catch (e) {}
+            })();
+            return identityPromise;
+        }
+
+        async function rememberChatName(name) {
+            try {
+                const id = await resolveClientId();
+                if (!id) return;
+                const res = await fetch('/chat/identity', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': CSRF, 'Accept': 'application/json' },
+                    body: JSON.stringify({ client_id: id, name }),
+                });
+                if (!res.ok) return;
+                const data = await res.json();
+                if (data.name) {
+                    setStoredChatName(data.name);
+                    if (phase === 'message') messagePrompt();
+                    if (window.playgroundShow) window.playgroundShow(chatName);
+                }
+            } catch (e) {}
+        }
+
+        function avatarUrl(name) {
+            return 'https://api.dicebear.com/9.x/notionists/svg?seed=' + encodeURIComponent(name || 'anon') + '&radius=50&backgroundColor=f1f1f1';
+        }
+
+        const AUTH_AVATAR = "https:\/\/bryllim.com\/images\/optimized\/chatprofile-1da67e85ef45-96.webp";
+
+        function detectDevice() {
+            const ua = navigator.userAgent || '';
+            const touch = navigator.maxTouchPoints || 0;
+            if (/iPad/.test(ua) || (/Macintosh/.test(ua) && touch > 1)) return 'iPad';
+            if (/iPhone|iPod/.test(ua)) return 'iPhone';
+            if (/Android/.test(ua)) return /Mobile/.test(ua) ? 'Android' : 'Android tablet';
+            if (/Macintosh|Mac OS X/.test(ua)) return 'Mac';
+            if (/Windows/.test(ua)) return 'Windows';
+            if (/CrOS/.test(ua)) return 'Chromebook';
+            if (/Linux/.test(ua)) return 'Linux';
+            return 'device';
+        }
+
+        const DEV_ICONS = {
+            phone: '<svg class="chat-dev" viewBox="0 0 24 24" fill="none"><rect x="7" y="2.5" width="10" height="19" rx="2.2" stroke="currentColor" stroke-width="1.6"/><line x1="10.5" y1="18.5" x2="13.5" y2="18.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
+            tablet: '<svg class="chat-dev" viewBox="0 0 24 24" fill="none"><rect x="4" y="2.5" width="16" height="19" rx="2.2" stroke="currentColor" stroke-width="1.6"/><line x1="10.5" y1="18.5" x2="13.5" y2="18.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
+            laptop: '<svg class="chat-dev" viewBox="0 0 24 24" fill="none"><rect x="4" y="5" width="16" height="11" rx="1.6" stroke="currentColor" stroke-width="1.6"/><path d="M2 19.5h20" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
+        };
+        function deviceIcon(label) {
+            if (label === 'iPhone' || label === 'Android') return DEV_ICONS.phone;
+            if (label === 'iPad' || label === 'Android tablet') return DEV_ICONS.tablet;
+            return DEV_ICONS.laptop;
+        }
+
+        async function collectLocation() {
+            if (myLocation) return;
+            try {
+                const ctrl = new AbortController();
+                const to = setTimeout(() => ctrl.abort(), 3500);
+                const r = await fetch('https://ipwho.is/', { signal: ctrl.signal });
+                clearTimeout(to);
+                const d = await r.json();
+                if (d && d.success !== false) {
+                    myLocation = [d.city, d.country_code].filter(Boolean).join(', ') || d.country || '';
+                }
+            } catch (e) {}
+        }
+
+        function messagePrompt() {
+            promptEl.innerHTML = 'chatting as ';
+            const b = document.createElement('b'); b.textContent = chatName; // textContent => XSS-safe
+            promptEl.appendChild(b);
+        }
+
+        function cooldownHint() {
+            if (hintTimer) clearTimeout(hintTimer);
+            window.siteSound?.play('droplet');
+            promptEl.textContent = 'easy — give it a sec…';
+            hintTimer = setTimeout(messagePrompt, 1400);
+        }
+
+        function timeAgo(iso) {
+            const then = iso ? new Date(iso).getTime() : NaN;
+            if (isNaN(then)) return '';
+            const s = Math.max(0, Math.floor((Date.now() - then) / 1000));
+            if (s < 10) return 'just now';
+            if (s < 60) return s + 's ago';
+            const m = Math.floor(s / 60); if (m < 60) return m + 'm ago';
+            const h = Math.floor(m / 60); if (h < 24) return h + 'h ago';
+            const d = Math.floor(h / 24); if (d < 7) return d + 'd ago';
+            const w = Math.floor(d / 7); if (w < 5) return w + 'w ago';
+            const mo = Math.floor(d / 30); if (mo < 12) return mo + 'mo ago';
+            return Math.floor(d / 365) + 'y ago';
+        }
+        function updateTimes() {
+            messagesEl.querySelectorAll('.chat-time').forEach((el) => { el.textContent = timeAgo(el.dataset.at); });
+        }
+
+        function isOffensive(text) {
+            const t = (text || '').toLowerCase();
+            for (const w of BAD_LOOSE) { if (t.indexOf(w) !== -1) return true; }
+            for (const w of BAD_STRICT) {
+                try { if (new RegExp('\\b' + w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'u').test(t)) return true; } catch (e) {}
+            }
+            return false;
+        }
+        function containsLink(text) {
+            const t = (text || '').toLowerCase();
+            if (/https?:\/\//.test(t)) return true;
+            if (/(?:^|[^a-z0-9])www\.[a-z0-9]/.test(t)) return true;
+            try { return new RegExp('[a-z0-9][a-z0-9-]*\\.(?:' + LINK_TLDS.join('|') + ')\\b').test(t); } catch (e) { return false; }
+        }
+        function linkHint() {
+            if (hintTimer) clearTimeout(hintTimer);
+            window.siteSound?.play('droplet');
+            promptEl.textContent = "links aren't allowed in chat";
+            hintTimer = setTimeout(messagePrompt, 2400);
+        }
+
+        function openKindnessTab() { window.open(KIND_URL, '_blank', 'noopener'); }
+        function blockedHint() {
+            if (hintTimer) clearTimeout(hintTimer);
+            window.siteSound?.play('droplet');
+            promptEl.textContent = "let's keep it kind — opening a guide for you";
+            hintTimer = setTimeout(messagePrompt, 2800);
+        }
+
+        function startCooldown() {
+            lastSent = Date.now();
+            sendEl.disabled = true;
+            setTimeout(() => { sendEl.disabled = false; }, SEND_COOLDOWN);
+        }
+
+        function updateFades() {
+            const el = messagesEl;
+            const canScroll = el.scrollHeight - el.clientHeight > 4;
+            el.classList.toggle('fade-top', canScroll && el.scrollTop > 4);
+            el.classList.toggle('fade-bottom', canScroll && (el.scrollHeight - el.scrollTop - el.clientHeight) > 4);
+        }
+        const COUNT_ICON = '<svg viewBox="0 0 24 24" fill="none"><path d="M4 5.5h16v10H10l-4.5 4v-4H4z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>';
+        function updateCount() {
+            countEl.innerHTML = totalCount > 0 ? (COUNT_ICON + '<span>' + totalCount + (totalCount === 1 ? ' message' : ' messages') + '</span>') : '';
+        }
+        messagesEl.addEventListener('scroll', updateFades, { passive: true });
+
+        function trimMessages() {
+            const items = messagesEl.querySelectorAll('.chat-item');
+            if (items.length > MAX_VISIBLE) {
+                for (let i = 0; i < items.length - MAX_VISIBLE; i++) items[i].remove();
+            }
+            updateFades();
+        }
+
+        function restoreEditor(editor, display) {
+            editor.replaceWith(display);
+            return display;
+        }
+
+        async function saveInlineEdit(item, editor, display, field, originalValue) {
+            const value = editor.value.trim();
+            if (!value || value === originalValue) {
+                restoreEditor(editor, display);
+                return;
+            }
+
+            if (isOffensive(value)) {
+                restoreEditor(editor, display);
+                blockedHint();
+                return;
+            }
+
+            if (containsLink(value)) {
+                restoreEditor(editor, display);
+                linkHint();
+                return;
+            }
+
+            editor.disabled = true;
+            try {
+                const res = await fetch('/chat/' + encodeURIComponent(item.dataset.messageId), {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': CSRF, 'Accept': 'application/json' },
+                    body: JSON.stringify({ [field]: value }),
+                });
+
+                if (!res.ok) {
+                    restoreEditor(editor, display);
+                    if (res.status === 422) {
+                        const data = await res.json().catch(() => ({}));
+                        if (data.reason === 'link') linkHint(); else blockedHint();
+                    }
+                    return;
+                }
+
+                const data = await res.json();
+                const updated = data.message;
+                display.textContent = field === 'name' ? updated.name : updated.message;
+                restoreEditor(editor, display);
+                item.__chatMessage = updated;
+            } catch (e) {
+                restoreEditor(editor, display);
+            }
+        }
+
+        function beginInlineEdit(item, display, field) {
+            if (!IS_AUTHENTICATED || item.querySelector('.chat-inline-editor')) return;
+
+            const originalValue = display.textContent;
+            const editor = document.createElement(field === 'name' ? 'input' : 'textarea');
+            editor.className = 'chat-inline-editor ' + (field === 'name' ? 'chat-name-editor' : 'chat-message-editor');
+            editor.value = originalValue;
+            editor.maxLength = field === 'name' ? 40 : 500;
+            editor.setAttribute('aria-label', field === 'name' ? 'Edit message name' : 'Edit message');
+            if (field === 'message') editor.rows = 1;
+
+            display.replaceWith(editor);
+            editor.focus();
+            editor.select();
+
+            let finished = false;
+            const cancel = () => {
+                if (finished) return;
+                finished = true;
+                restoreEditor(editor, display);
+            };
+            editor.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape') {
+                    event.preventDefault();
+                    cancel();
+                } else if (event.key === 'Enter') {
+                    event.preventDefault();
+                    if (!finished) {
+                        finished = true;
+                        saveInlineEdit(item, editor, display, field, originalValue);
+                    }
+                }
+            });
+            editor.addEventListener('blur', () => {
+                if (!finished) cancel();
+            });
+        }
+
+        async function deleteMessage(item) {
+            if (!IS_AUTHENTICATED || item.dataset.deleting === 'true') return;
+            item.dataset.deleting = 'true';
+
+            try {
+                const res = await fetch('/chat/' + encodeURIComponent(item.dataset.messageId), {
+                    method: 'DELETE',
+                    headers: { 'X-CSRF-TOKEN': CSRF, 'Accept': 'application/json' },
+                });
+
+                if (!res.ok) {
+                    delete item.dataset.deleting;
+                    promptEl.textContent = "couldn't delete that message";
+                    setTimeout(() => { if (phase === 'message') messagePrompt(); }, 1800);
+                    return;
+                }
+
+                const full = item.offsetHeight;
+                item.style.overflow = 'hidden';
+                item.style.height = full + 'px';
+                item.style.transition = 'height .24s cubic-bezier(.16,1,.3,1), margin-top .24s cubic-bezier(.16,1,.3,1), opacity .2s ease, transform .24s cubic-bezier(.16,1,.3,1)';
+                void item.offsetHeight;
+                requestAnimationFrame(() => {
+                    item.style.height = '0px';
+                    item.style.marginTop = '-12px';
+                    item.style.opacity = '0';
+                    item.style.transform = 'translateY(6px)';
+                });
+                setTimeout(() => {
+                    item.remove();
+                    totalCount = Math.max(0, totalCount - 1);
+                    updateCount();
+                    updateFades();
+                }, 260);
+            } catch (e) {
+                delete item.dataset.deleting;
+                promptEl.textContent = "couldn't delete that message";
+                setTimeout(() => { if (phase === 'message') messagePrompt(); }, 1800);
+            }
+        }
+
+        function setPhase(p) {
+            phase = p;
+            if (p === 'name') {
+                promptEl.textContent = "what's your name?";
+                inputEl.placeholder = 'your name';
+                inputEl.maxLength = 40;
+                sendEl.textContent = 'next ?';
+            } else {
+                messagePrompt();
+                inputEl.placeholder = 'say something…';
+                inputEl.maxLength = 500;
+                sendEl.textContent = 'send ?';
+            }
+            if (p === 'message') { if (window.playgroundShow) window.playgroundShow(chatName); }
+            else if (window.playgroundHide) window.playgroundHide();
+            inputEl.value = '';
+            inputEl.focus();
+        }
+
+        function animateIn(item) {
+            const full = item.offsetHeight;                 // natural height before collapsing
+            item.style.overflow = 'hidden';
+            item.style.height = '0px';
+            item.style.marginTop = '-12px';                  // cancel the flex gap while collapsed
+            item.style.opacity = '0';
+            item.style.filter = 'blur(7px)';
+            item.style.transform = 'translateY(8px)';
+            void item.offsetHeight;                          // flush the start state
+            item.style.transition = 'height .42s cubic-bezier(.16,1,.3,1), margin-top .42s cubic-bezier(.16,1,.3,1), opacity .42s ease, filter .5s ease, transform .42s cubic-bezier(.16,1,.3,1)';
+            requestAnimationFrame(() => {
+                item.style.height = full + 'px';
+                item.style.marginTop = '0px';
+                item.style.opacity = '1';
+                item.style.filter = 'blur(0)';
+                item.style.transform = 'translateY(0)';
+            });
+            const done = (e) => {
+                if (e.propertyName !== 'height') return;
+                item.style.transition = ''; item.style.height = ''; item.style.overflow = '';
+                item.style.marginTop = ''; item.style.transform = ''; item.style.opacity = ''; item.style.filter = '';
+                updateFades();
+                item.removeEventListener('transitionend', done);
+            };
+            item.addEventListener('transitionend', done);
+        }
+
+        function addMessage(m, animate) {
+            const item = document.createElement('div');
+            item.className = 'chat-item';
+            item.dataset.messageId = m.id;
+            item.__chatMessage = m;
+            const img = document.createElement('img');
+            img.className = 'chat-avatar'; img.alt = ''; img.loading = 'lazy'; img.src = m.verified ? AUTH_AVATAR : avatarUrl(m.name);
+            item.appendChild(img);
+            const body = document.createElement('div'); body.className = 'chat-body';
+            const a = document.createElement('span'); a.className = 'chat-author';
+            const nm = document.createElement(IS_AUTHENTICATED ? 'button' : 'span');
+            nm.className = 'chat-name-txt' + (IS_AUTHENTICATED ? ' chat-editable' : '');
+            nm.textContent = m.name;
+            if (IS_AUTHENTICATED) {
+                nm.type = 'button';
+                nm.title = 'Edit name';
+                nm.addEventListener('click', () => beginInlineEdit(item, nm, 'name'));
+            }
+            a.appendChild(nm);
+            if (m.verified) {
+                nm.classList.add('chat-name-mine');
+            }
+            if (m.location) {
+                const sep = document.createElement('span'); sep.className = 'chat-sep'; sep.textContent = '·';
+                const loc = document.createElement('span'); loc.className = 'chat-loc'; loc.textContent = m.location;
+                a.appendChild(sep); a.appendChild(loc);
+            }
+            if (m.device) {
+                const dv = document.createElement('span'); dv.className = 'chat-dev-wrap'; dv.title = m.device;
+                dv.innerHTML = deviceIcon(m.device);   // fixed-set SVG, never user input
+                a.appendChild(dv);
+            }
+            if (m.at) {
+                const tsep = document.createElement('span'); tsep.className = 'chat-sep'; tsep.textContent = '·';
+                const tm = document.createElement('span'); tm.className = 'chat-time'; tm.dataset.at = m.at; tm.textContent = timeAgo(m.at);
+                a.appendChild(tsep); a.appendChild(tm);
+            }
+            const bub = document.createElement(IS_AUTHENTICATED ? 'button' : 'div');
+            bub.className = 'chat-bubble' + (IS_AUTHENTICATED ? ' chat-editable' : '');
+            bub.textContent = m.message;   // textContent keeps it XSS-safe
+            if (IS_AUTHENTICATED) {
+                bub.type = 'button';
+                bub.title = 'Edit message';
+                bub.addEventListener('click', () => beginInlineEdit(item, bub, 'message'));
+            }
+            const bubbleWrap = document.createElement('div');
+            bubbleWrap.className = 'chat-bubble-wrap';
+            bubbleWrap.appendChild(bub);
+            if (IS_AUTHENTICATED) {
+                const del = document.createElement('button');
+                del.type = 'button';
+                del.className = 'chat-delete';
+                del.textContent = '×';
+                del.title = 'Delete message';
+                del.setAttribute('aria-label', 'Delete message');
+                del.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    deleteMessage(item);
+                });
+                bubbleWrap.appendChild(del);
+            }
+            body.appendChild(a); body.appendChild(bubbleWrap);
+            item.appendChild(body);
+            messagesEl.appendChild(item);
+            lastId = Math.max(lastId, m.id);
+            if (animate) animateIn(item);
+        }
+
+        function scrollBottom() { messagesEl.scrollTop = messagesEl.scrollHeight; }
+        // Smoothly glide to the bottom, re-reading the target each frame so it follows a message
+        // that's still animating its height in — and keep pinning until we've actually reached and
+        // held the bottom for a few frames (the newest message ends up fully in view, not below the fold).
+        let scrollAnim = null;
+        function smoothScrollBottom(maxMs) {
+            const el = messagesEl;
+            if (scrollAnim) cancelAnimationFrame(scrollAnim);
+            const startT = performance.now(), limit = maxMs || 1500;
+            let settled = 0;
+            const step = (now) => {
+                const target = Math.max(0, el.scrollHeight - el.clientHeight);
+                const dist = target - el.scrollTop;
+                if (dist > 0.5) { el.scrollTop += dist * 0.2; settled = 0; }   // ease toward the (still-growing) bottom
+                else { el.scrollTop = target; settled++; }
+                updateFades();
+                if (settled < 3 && now - startT < limit) { scrollAnim = requestAnimationFrame(step); }
+                else { el.scrollTop = Math.max(0, el.scrollHeight - el.clientHeight); scrollAnim = null; updateFades(); }
+            };
+            scrollAnim = requestAnimationFrame(step);
+        }
+
+        async function load(initial) {
+            try {
+                const res = await fetch('/chat' + (lastId ? '?after=' + lastId : ''), { cache: 'no-store' });
+                const data = await res.json();
+                if (initial && typeof data.total === 'number') { totalCount = data.total; updateCount(); }
+                if (initial && data.messages.length === 0 && messagesEl.children.length === 0) {
+                    messagesEl.innerHTML = '<p class="chat-empty">no messages yet — say hi ??</p>';
+                    return;
+                }
+                if (data.messages.length) {
+                    const empty = messagesEl.querySelector('.chat-empty'); if (empty) empty.remove();
+                    const nearBottom = messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight < 90;
+                    data.messages.forEach((m) => addMessage(m, !initial));
+                    if (!initial) window.siteSound?.play('chime');
+                    if (!initial) { totalCount += data.messages.length; updateCount(); }   // poll brought new ones
+                    trimMessages();
+                    updateTimes();
+                    if (initial) scrollBottom(); else if (nearBottom) smoothScrollBottom();
+                    requestAnimationFrame(updateFades);
+                }
+            } catch (e) {}
+        }
+
+        async function send(e) {
+            e.preventDefault();
+            const val = inputEl.value.trim();
+            if (!val) return;
+
+            if (phase === 'name') {
+                if (containsLink(val)) {
+                    if (hintTimer) clearTimeout(hintTimer);
+                    promptEl.textContent = "name can't contain a link";
+                    hintTimer = setTimeout(() => { promptEl.textContent = "what's your name?"; }, 2400);
+                    return;
+                }
+                setStoredChatName(val);
+                setPhase('message');
+                rememberChatName(chatName);
+                window.siteSound?.play('toggle');
+                return;
+            }
+
+            if (isOffensive(val) || isOffensive(chatName)) {
+                inputEl.value = '';
+                blockedHint();
+                openKindnessTab();
+                return;
+            }
+
+            if (containsLink(val) || containsLink(chatName)) { linkHint(); return; }
+
+            if (Date.now() - lastSent < SEND_COOLDOWN) { cooldownHint(); return; }
+
+            inputEl.value = '';
+            try {
+                const currentClientId = await resolveClientId();
+                const res = await fetch('/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': CSRF, 'Accept': 'application/json' },
+                    body: JSON.stringify({ name: chatName, message: val, client_id: currentClientId, location: myLocation, device: myDevice }),
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    const empty = messagesEl.querySelector('.chat-empty'); if (empty) empty.remove();
+                    addMessage(data.message, true);
+                    totalCount += 1; updateCount();
+                    trimMessages();
+                    startCooldown();
+                    smoothScrollBottom();       // always glide the user's own message into view
+                    requestAnimationFrame(updateFades);
+                    inputEl.focus();
+                    window.siteSound?.play('success');
+                } else if (res.status === 422) {
+                    const d = await res.json().catch(() => ({}));   // server-side backstop
+                    if (d.reason === 'link') { linkHint(); }
+                    else { blockedHint(); openKindnessTab(); }
+                } else {
+                    inputEl.value = val;    // other failure — let them retry
+                }
+            } catch (e3) { inputEl.value = val; }
+        }
+        form.addEventListener('submit', send);
+
+        window.openChat = function () {
+            clearTimeout(closeT1); clearTimeout(closeT2);
+            overlay.classList.remove('is-closing');
+            overlay.classList.add('is-visible');
+            document.documentElement.style.overflow = 'hidden';
+            requestAnimationFrame(() => overlay.classList.add('is-open'));
+            myDevice = detectDevice();
+            loadRememberedIdentity();
+            collectLocation();
+            load(lastId === 0 && messagesEl.children.length === 0);
+            setPhase(chatName ? 'message' : 'name');
+            setTimeout(() => inputEl.focus(), 90);
+            if (pollTimer) clearInterval(pollTimer);
+            pollTimer = setInterval(() => { if (!document.hidden) load(false); }, 8000);
+            if (timeTimer) clearInterval(timeTimer);
+            timeTimer = setInterval(() => { if (!document.hidden) updateTimes(); }, 20000);
+        };
+        window.closeChat = function () {
+            if (!overlay.classList.contains('is-visible') || overlay.classList.contains('is-closing')) return;
+            document.documentElement.style.overflow = '';
+            if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+            if (timeTimer) { clearInterval(timeTimer); timeTimer = null; }
+            if (window.playgroundHide) window.playgroundHide();
+            overlay.classList.add('is-closing');                          // 1. fade the elements out first
+            closeT1 = setTimeout(() => {
+                overlay.classList.remove('is-open');                      // 2. then fade the blur backdrop
+                closeT2 = setTimeout(() => {
+                    overlay.classList.remove('is-visible', 'is-closing'); // 3. finally hide
+                }, 380);
+            }, 280);
+        };
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && overlay.classList.contains('is-visible')) closeChat();
+        });
+    })();
+
+### SCRIPT 5  (len=12760) ###
+
+    (function () {
+        const overlay = document.getElementById('typingOverlay');
+        if (!overlay) return;
+        const wordsEl = document.getElementById('ttWords');
+        const kbEl = document.getElementById('ttKeyboard');
+        const elWpm = document.getElementById('ttWpm'), elAcc = document.getElementById('ttAcc'), elTime = document.getElementById('ttTime');
+        const rWpm = document.getElementById('ttResWpm'), rAcc = document.getElementById('ttResAcc'), rRaw = document.getElementById('ttResRaw'), rTime = document.getElementById('ttResTime');
+        const verdictEl = document.getElementById('ttVerdict');
+        const BRYL_WPM = 140;
+
+        const WORD_BANK = ('the be of and a to in he have it that for they with as not on she at by this we you do but from or which one would all will there say who make when can more if no out other so what time up go about than into could state only new year some take come these know see use get like then first any work now may such give over think most even find day also after way many must look before great back through long where much should well people down own just because good each those feel seem how high too place little world very still hand old life tell write become here show house both between need mean call under last right move thing school never same begin while number part turn real leave might want point form off child few small since against ask late home large person end open public follow during without again hold around possible head consider word program problem however lead system set order eye plan run keep face fact group play stand early course change help line').split(' ');
+
+        const KB_ROWS = ['qwertyuiop', 'asdfghjkl', 'zxcvbnm'];
+        const N_WORDS = 26;
+
+        let words = [], wordEls = [], wi = 0, ci = 0;
+        let started = false, finished = false, startTime = 0, rafId = null;
+        let raw = 0, correct = 0;
+        let dispWpm = 0, dispAcc = 100, dispTime = 0, lastStatWrite = 0;   // animated (eased) display values
+        let isOpen = false, pendingRestart = false, closeT1 = null, closeT2 = null;
+        const caretEl = document.createElement('span'); caretEl.className = 'tt-caret';
+        function setConfirm(on) { pendingRestart = on; overlay.classList.toggle('is-confirming', on); }
+
+        function rand(n) { return Math.floor(Math.random() * n); }
+        function genWords() { words = Array.from({ length: N_WORDS }, () => WORD_BANK[rand(WORD_BANK.length)]); }
+
+        function buildKeyboard() {
+            kbEl.innerHTML = ''; let idx = 0;
+            KB_ROWS.forEach((row) => {
+                const r = document.createElement('div'); r.className = 'tt-krow';
+                for (const ch of row) {
+                    const k = document.createElement('span'); k.className = 'tt-key'; k.dataset.key = ch; k.textContent = ch;
+                    k.style.animationDelay = (idx * 7) + 'ms'; r.appendChild(k); idx++;
+                }
+                kbEl.appendChild(r);
+            });
+            const r = document.createElement('div'); r.className = 'tt-krow';
+            const sp = document.createElement('span'); sp.className = 'tt-key space'; sp.dataset.key = ' '; sp.textContent = 'space';
+            sp.style.animationDelay = (idx * 7) + 'ms'; r.appendChild(sp); kbEl.appendChild(r);
+        }
+        function keyEl(ch) { try { return kbEl.querySelector('.tt-key[data-key="' + (ch === ' ' ? ' ' : ch) + '"]'); } catch (e) { return null; } }
+        function flashKey(ch) { const k = keyEl(ch); if (k) { k.classList.add('active'); setTimeout(() => k.classList.remove('active'), 110); } }
+        function highlightNext() {
+            kbEl.querySelectorAll('.tt-key.next').forEach((k) => k.classList.remove('next'));
+            if (finished) return;
+            const cur = wordEls[wi]; let nc = null;
+            if (ci < cur.word.length) nc = cur.word[ci];
+            else if (wi < words.length - 1) nc = ' ';
+            if (nc) { const k = keyEl(nc); if (k) k.classList.add('next'); }
+        }
+
+        function buildText() {
+            wordsEl.innerHTML = ''; wordEls = [];
+            words.forEach((w) => {
+                const wEl = document.createElement('span'); wEl.className = 'tt-word'; const chars = [];
+                for (const ch of w) { const c = document.createElement('span'); c.className = 'tt-char'; c.textContent = ch; wEl.appendChild(c); chars.push(c); }
+                wordsEl.appendChild(wEl); wordEls.push({ el: wEl, chars, word: w });
+            });
+            wordsEl.appendChild(caretEl);
+        }
+
+        function moveCaret() {
+            const cur = wordEls[wi]; let left, top;
+            if (ci < cur.chars.length) { const el = cur.chars[ci]; left = el.offsetLeft; top = el.offsetTop; }
+            else { const el = cur.chars[cur.chars.length - 1]; left = el.offsetLeft + el.offsetWidth; top = el.offsetTop; }
+            caretEl.style.left = left + 'px'; caretEl.style.top = top + 'px';
+        }
+
+        function start() {
+            started = true; startTime = Date.now(); wordsEl.classList.add('is-typing');
+            cancelAnimationFrame(rafId); rafId = requestAnimationFrame(statsLoop);
+        }
+        function statsLoop(now) {
+            const ms = now || 0;
+            const t = started ? (Date.now() - startTime) / 1000 : 0;
+            const tgtWpm = (started && t > 0.5) ? (correct / 5) / (t / 60) : 0;
+            const tgtAcc = raw ? (correct / raw * 100) : 100;
+            dispWpm += (tgtWpm - dispWpm) * 0.16;     // ease toward target each frame
+            dispAcc += (tgtAcc - dispAcc) * 0.16;
+            dispTime += (t - dispTime) * 0.4;
+            if (Math.abs(tgtWpm - dispWpm) < 0.5) dispWpm = tgtWpm;
+            if (Math.abs(tgtAcc - dispAcc) < 0.5) dispAcc = tgtAcc;
+            if (ms - lastStatWrite >= 240) {          // throttle on-screen refresh so the WPM reads calmly
+                lastStatWrite = ms;
+                elWpm.textContent = Math.round(dispWpm);
+                elAcc.textContent = Math.round(dispAcc);
+                elTime.textContent = Math.floor(dispTime + 1e-4);
+            }
+            if (isOpen && !finished) rafId = requestAnimationFrame(statsLoop);
+        }
+
+        function afterInput() {
+            moveCaret(); highlightNext();
+            const cur = wordEls[wi];
+            if (wi === words.length - 1 && ci >= cur.word.length) finish();
+        }
+
+        function handleChar(k) {
+            if (finished) return;
+            if (!started) start();
+            const cur = wordEls[wi];
+            if (ci < cur.word.length) {
+                const el = cur.chars[ci]; const ok = (k === cur.word[ci]);
+                el.classList.add(ok ? 'correct' : 'incorrect');
+                raw++; if (ok) correct++; ci++;
+                window.siteSound?.play(ok ? 'tick' : 'droplet');
+            } else if (cur.chars.length - cur.word.length < 8) {
+                const ex = document.createElement('span'); ex.className = 'tt-char extra'; ex.textContent = k;
+                cur.el.appendChild(ex); cur.chars.push(ex); raw++; ci++;
+                window.siteSound?.play('droplet');
+            }
+            afterInput();
+        }
+        function handleSpace() {
+            if (finished || !started) return;
+            if (wi < words.length - 1) { wi++; ci = 0; window.siteSound?.play('release'); afterInput(); }
+        }
+        function handleBackspace() {
+            if (finished) return;
+            if (ci > 0) {
+                ci--; const cur = wordEls[wi];
+                if (ci >= cur.word.length) { const ex = cur.chars.pop(); if (ex) ex.remove(); }
+                else cur.chars[ci].classList.remove('correct', 'incorrect');
+                window.siteSound?.play('press');
+            } else if (wi > 0) { wi--; ci = wordEls[wi].chars.length; window.siteSound?.play('press'); }
+            moveCaret(); highlightNext();
+        }
+
+        function finish() {
+            if (finished) return;
+            finished = true; cancelAnimationFrame(rafId); wordsEl.classList.remove('is-typing');
+            const el = Math.max(0.001, (Date.now() - startTime) / 1000);
+            const wpm = Math.round((correct / 5) / (el / 60));
+            const rawWpm = Math.round((raw / 5) / (el / 60));
+            const acc = raw ? Math.round(correct / raw * 100) : 100;
+            rAcc.textContent = acc; rRaw.textContent = rawWpm; rTime.textContent = el.toFixed(1);
+            const beat = wpm >= BRYL_WPM;
+            const icon = beat
+                ? '<svg class="tt-vicon" viewBox="0 0 24 24" fill="none"><path d="M5 12.5l4.5 4.5L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+                : '<svg class="tt-vicon" viewBox="0 0 24 24" fill="none"><path d="M7 7l10 10M17 7L7 17" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>';
+            verdictEl.className = 'tt-verdict' + (beat ? ' beat' : ' miss');
+            verdictEl.innerHTML = icon + '<span>' + (beat ? 'you beat bryl · 140 wpm' : "you didn't beat bryl · 140 wpm") + '</span>';
+            overlay.classList.add('show-results');
+            window.siteSound?.play(beat ? 'success' : 'chime');
+            countUp(rWpm, wpm, 750);
+        }
+        function countUp(el, target, dur) {
+            const t0 = performance.now();
+            (function tick(now) {
+                const p = Math.min(1, (now - t0) / dur); const e = 1 - Math.pow(1 - p, 3);
+                el.textContent = Math.round(target * e);
+                if (p < 1) requestAnimationFrame(tick); else el.textContent = target;
+            })(t0);
+        }
+
+        function reset() {
+            finished = false; started = false; startTime = 0; wi = 0; ci = 0; raw = 0; correct = 0;
+            cancelAnimationFrame(rafId); overlay.classList.remove('show-results'); setConfirm(false);
+            dispWpm = 0; dispAcc = 100; dispTime = 0; lastStatWrite = 0;
+            elWpm.textContent = '0'; elAcc.textContent = '100'; elTime.textContent = '0';
+            genWords(); buildText(); requestAnimationFrame(() => { moveCaret(); highlightNext(); });
+        }
+        window.ttRestart = reset;
+
+        window.openTyping = function () {
+            clearTimeout(closeT1); clearTimeout(closeT2);
+            overlay.classList.remove('is-closing');
+            if (window.closeAsk) try { window.closeAsk(); } catch (e) {}
+            if (window.closeChat) try { window.closeChat(); } catch (e) {}
+            overlay.classList.add('is-visible');
+            document.documentElement.style.overflow = 'hidden';
+            requestAnimationFrame(() => overlay.classList.add('is-open'));
+            isOpen = true;
+            reset();
+        };
+        window.closeTyping = function () {
+            if (!isOpen) return;
+            isOpen = false; cancelAnimationFrame(rafId); setConfirm(false);
+            document.documentElement.style.overflow = '';
+            overlay.classList.add('is-closing');                          // 1. fade the elements out first
+            closeT1 = setTimeout(() => {
+                overlay.classList.remove('is-open');                      // 2. then fade the blur backdrop
+                closeT2 = setTimeout(() => {
+                    overlay.classList.remove('is-visible', 'is-closing'); // 3. finally hide
+                }, 380);
+            }, 280);
+        };
+
+        buildKeyboard();
+
+        document.addEventListener('keydown', (e) => {
+            if ((e.metaKey || e.altKey) && e.code === 'KeyJ' && !e.ctrlKey) {
+                e.preventDefault();
+                isOpen ? closeTyping() : openTyping();
+                return;
+            }
+            if (!isOpen) return;
+            if (e.key === 'Escape') { e.preventDefault(); if (pendingRestart) setConfirm(false); else closeTyping(); return; }
+            if (e.metaKey || e.ctrlKey) return;          // let copy/paste etc. pass through
+            if (e.key === 'Tab') { e.preventDefault(); if (started && !finished) setConfirm(true); else reset(); return; }
+            if (e.key === 'Enter') { if (pendingRestart || finished) { e.preventDefault(); reset(); } return; }
+            if (pendingRestart) return;                  // confirm is modal: only enter/esc until resolved
+            if (e.key === 'Backspace') { e.preventDefault(); flashKey('backspace'); handleBackspace(); return; }
+            if (e.key === ' ') { e.preventDefault(); flashKey(' '); finished ? reset() : handleSpace(); return; }
+            if (e.key.length === 1) {
+                const ch = e.key.toLowerCase();
+                if (/[a-z]/.test(ch)) { e.preventDefault(); flashKey(ch); if (!finished) handleChar(ch); }
+            }
+        });
+    })();
+
+### SCRIPT 6  (len=945) ###
+
+    document.addEventListener('DOMContentLoaded', () => {
+        if (!window.matchMedia('(prefers-reduced-motion: no-preference)').matches || !('IntersectionObserver' in window)) return;
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach((entry) => {
+                if (!entry.isIntersecting) return;
+                entry.target.classList.add('page-enter-motion');
+                entry.target.addEventListener('animationend', () => entry.target.classList.remove('page-enter-motion'), { once: true });
+                observer.unobserve(entry.target);
+            });
+        }, { threshold: 0.04 });
+        document.querySelectorAll('main section, main .reveal, [data-page-enter-item]').forEach((item) => {
+            if (item.getBoundingClientRect().top >= window.innerHeight && !item.closest('[role="dialog"], [aria-hidden="true"]')) observer.observe(item);
+        });
+    }, { once: true });
+
+### SCRIPT 7  (len=4800) ###
+
+    function openMobileNav() {
+        const m = document.getElementById('mobileNav');
+        m.classList.remove('hidden');
+        m.classList.add('flex');
+        document.documentElement.style.overflow = 'hidden';
+        requestAnimationFrame(() => m.classList.add('is-open'));
+    }
+    function closeMobileNav() {
+        const m = document.getElementById('mobileNav');
+        m.classList.remove('is-open');
+        document.documentElement.style.overflow = '';
+        setTimeout(() => { m.classList.add('hidden'); m.classList.remove('flex'); }, 300);
+    }
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            const m = document.getElementById('mobileNav');
+            if (m && !m.classList.contains('hidden')) closeMobileNav();
+        }
+    });
+
+    // -- Site visitor identity + live "currently viewing" presence heartbeat --
+    (function () {
+        let visitorIdPromise = null;
+
+        function wait(ms) {
+            return new Promise((_, reject) => setTimeout(() => reject(new Error('fingerprint timeout')), ms));
+        }
+        function withTimeout(promise, ms) {
+            return Promise.race([promise, wait(ms)]);
+        }
+        function storedVisitorId() {
+            try { return localStorage.getItem('visitorId') || ''; } catch (e) { return ''; }
+        }
+        function storeVisitorId(id, source) {
+            try {
+                localStorage.setItem('visitorId', id);
+                localStorage.setItem('visitorIdSource', source);
+            } catch (e) {}
+        }
+        function localVisitorId() {
+            let vid = storedVisitorId();
+            if (!vid) {
+                vid = (window.crypto && crypto.randomUUID) ? crypto.randomUUID()
+                    : (Date.now().toString(36) + Math.random().toString(36).slice(2));
+                storeVisitorId(vid, 'local');
+            }
+            return vid;
+        }
+
+        window.resolveVisitorId = function () {
+            if (visitorIdPromise) return visitorIdPromise;
+            visitorIdPromise = (async () => {
+                try {
+                    const FingerprintJS = await withTimeout(import('https://openfpcdn.io/fingerprintjs/v5'), 3500);
+                    const fp = await withTimeout(FingerprintJS.load(), 3500);
+                    const result = await withTimeout(fp.get(), 3500);
+                    if (result && result.visitorId) {
+                        storeVisitorId(result.visitorId, 'fingerprintjs');
+                        return result.visitorId;
+                    }
+                } catch (e) {}
+
+                return localVisitorId();
+            })();
+
+            return visitorIdPromise;
+        };
+
+        const AV_SEEDS = ['Maria', 'Leo', 'Zoe', 'Kai'];   // DiceBear notionists avatars
+        function avatarImg(seed) {
+            return '<img class="presence-avatar" alt="" loading="lazy" src="https://api.dicebear.com/9.x/notionists/svg?seed='
+                + encodeURIComponent(seed) + '&radius=50&backgroundColor=f1f1f1">';
+        }
+        function renderPresence(count) {
+            count = Math.max(1, parseInt(count, 10) || 1);
+            const shown = count > 4 ? 3 : count;          // beyond 4, the last slot becomes "+x people"
+            let html = '';
+            for (let i = 0; i < shown; i++) html += avatarImg(AV_SEEDS[i % AV_SEEDS.length]);
+            if (count > 4) html += '<span class="presence-more">+' + (count - 3) + '</span>';
+            document.querySelectorAll('.presence-icons').forEach((el) => { el.innerHTML = html; });
+
+            const label = '<b class="presence-num">' + count + '</b> ' + (count === 1 ? 'person' : 'people') + ' viewing now';
+            document.querySelectorAll('.presence-label').forEach((el) => { el.innerHTML = label; });
+        }
+        let pinging = false;
+        async function ping() {
+            if (document.hidden || pinging) return;
+            pinging = true;
+            try {
+                const vid = await window.resolveVisitorId();
+                if (document.hidden) return;
+                const res = await fetch('/presence?id=' + encodeURIComponent(vid), { cache: 'no-store' });
+                const data = await res.json();
+                renderPresence(data.count);
+            } catch (e) {} finally { pinging = false; }
+        }
+        function startPresence() {
+            if ('requestIdleCallback' in window) requestIdleCallback(ping, { timeout: 2000 });
+            else setTimeout(ping, 1000);
+        }
+        if (document.readyState === 'complete') startPresence();
+        else window.addEventListener('load', startPresence, { once: true });
+        setInterval(ping, 30000);
+        document.addEventListener('visibilitychange', () => { if (!document.hidden) ping(); });
+    })();
+
+### SCRIPT 8  (len=7139) ###
+
+        // Match the eight surrounding portraits to the pointer's angle from the face.
+        (() => {
+            const photo = document.getElementById('profile-gaze');
+            const motion = matchMedia('(prefers-reduced-motion: reduce)');
+            const directions = ['right', 'down-right', 'down', 'down-left', 'left', 'up-left', 'up', 'up-right'];
+            const portraits = new Map();
+            let position = null;
+            let frame = 0;
+            let guided = false;
+
+            function show(direction) {
+                if (photo.dataset.direction === direction) return;
+                if (direction !== 'center' && !portraits.get(direction)?.complete) return;
+                if (direction !== 'center' && !portraits.get(direction)?.naturalWidth) return;
+                photo.src = `${photo.dataset.gazeBase}/${direction}.webp`;
+                photo.dataset.direction = direction;
+            }
+
+            function update() {
+                frame = 0;
+                if (!position || motion.matches) return show('center');
+                const rect = photo.getBoundingClientRect();
+                const dx = position.x - (rect.left + rect.width / 2);
+                const dy = position.y - (rect.top + rect.height * 0.45);
+                if (Math.hypot(dx, dy) < rect.width * 0.18) return show('center');
+                const sector = Math.round(Math.atan2(dy, dx) / (Math.PI / 4));
+                show(directions[(sector + 8) % 8]);
+            }
+
+            function schedule() {
+                if (!frame) frame = requestAnimationFrame(update);
+            }
+
+            function configure() {
+                if (!motion.matches && portraits.size === 0) {
+                    directions.forEach(direction => {
+                        const image = new Image();
+                        image.onload = schedule;
+                        image.src = `${photo.dataset.gazeBase}/${direction}.webp`;
+                        portraits.set(direction, image);
+                    });
+                }
+                schedule();
+            }
+
+            function reset() {
+                if (guided) return;
+                position = null;
+                schedule();
+            }
+
+            function follow(event) {
+                if (guided) return;
+                position = { x: event.clientX, y: event.clientY };
+                schedule();
+            }
+
+            // While the guide cursor is on screen (desktop) the portrait watches it instead of the visitor.
+            window.profileGaze = {
+                look(x, y) {
+                    guided = true;
+                    position = { x, y };
+                    schedule();
+                },
+                release() {
+                    guided = false;
+                    position = null;
+                    schedule();
+                },
+            };
+
+            document.addEventListener('pointerdown', follow, { passive: true });
+            document.addEventListener('pointermove', event => {
+                if (event.pointerType !== 'touch') follow(event);
+            }, { passive: true });
+            // Touch emits pointerleave after lifting a finger; keep looking at the last tap.
+            document.documentElement.addEventListener('pointerleave', event => {
+                if (event.pointerType !== 'touch') reset();
+            });
+            window.addEventListener('blur', reset);
+            document.addEventListener('visibilitychange', reset);
+            window.addEventListener('scroll', schedule, { passive: true });
+            window.addEventListener('resize', schedule);
+            motion.addEventListener('change', configure);
+            configure();
+        })();
+
+        // -- Spotlight deck: click a side card to bring it to centre --
+        function activateCard(card) {
+            if (card.classList.contains('is-center')) return;
+            const deck = card.closest('[data-deck]');
+            const center = deck.querySelector('.deck-card.is-center');
+            const slot = card.classList.contains('is-left') ? 'is-left' : 'is-right';
+            center.classList.remove('is-center');
+            center.classList.add(slot);
+            card.classList.remove('is-left', 'is-right');
+            card.classList.add('is-center');
+        }
+
+        const modal = document.getElementById('modal');
+
+        function openModal(name) {
+            const panel = modal.querySelector('[data-panel="' + name + '"]');
+            if (!panel) return;
+            modal.querySelectorAll('[data-panel]').forEach(p => { if (p !== panel) p.classList.add('hidden'); });
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            panel.classList.remove('hidden');
+            document.documentElement.style.overflow = 'hidden';
+            requestAnimationFrame(() => {
+                modal.querySelector('[data-modal-backdrop]').classList.remove('opacity-0');
+                panel.classList.remove('opacity-0', 'scale-95');
+            });
+        }
+
+        function closeModal() {
+            modal.querySelector('[data-modal-backdrop]').classList.add('opacity-0');
+            modal.querySelectorAll('[data-panel]').forEach(p => p.classList.add('opacity-0', 'scale-95'));
+            document.documentElement.style.overflow = '';
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+                modal.querySelectorAll('[data-panel]').forEach(p => p.classList.add('hidden'));
+            }, 200);
+        }
+
+        function copyEmail(event) {
+            event.stopPropagation();
+            const btn = event.currentTarget;
+            const email = 'bryllim@gmail.com';
+            const flash = (text) => {
+                btn.textContent = text;
+                window.siteSound?.play(text === 'Copied' ? 'success' : 'droplet');
+                setTimeout(() => { btn.textContent = 'Copy'; }, 1500);
+            };
+
+            const legacyCopy = () => {
+                try {
+                    const ta = document.createElement('textarea');
+                    ta.value = email;
+                    ta.style.position = 'fixed';
+                    ta.style.opacity = '0';
+                    document.body.appendChild(ta);
+                    ta.focus(); ta.select();
+                    const ok = document.execCommand('copy');
+                    document.body.removeChild(ta);
+                    return ok;
+                } catch (e) { return false; }
+            };
+
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(email)
+                    .then(() => flash('Copied'))
+                    .catch(() => flash(legacyCopy() ? 'Copied' : 'Failed'));
+            } else {
+                flash(legacyCopy() ? 'Copied' : 'Failed');
+            }
+        }
+
+        // Close the modal on Escape
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
+                closeModal();
+            }
+        });
+    
+### SCRIPT 9  (len=15940) ###
+
+    (() => {
+        const root = document.getElementById('guideCursor');
+        const desktop = matchMedia('(min-width: 1024px) and (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference)');
+        if (!root || !desktop.matches) return;
+
+        const store = {
+            get(key) { try { return sessionStorage.getItem(key); } catch (e) { return null; } },
+            set(key, value) { try { sessionStorage.setItem(key, value); } catch (e) {} },
+        };
+        const prompt = document.getElementById('guidePrompt');
+
+        const tag = root.querySelector('.gc-tag');
+        const name = root.querySelector('.gc-name');
+        const clip = root.querySelector('.gc-clip');
+        const inner = root.querySelector('[data-gc-text]');
+        const measure = root.querySelector('[data-gc-measure]');
+        const caret = root.querySelector('.gc-caret');
+        const sidebar = document.querySelector('[data-guide="sidebar"]');
+        const overlays = ['askOverlay', 'chatOverlay', 'typingOverlay'].map((id) => document.getElementById(id));
+        const modal = document.getElementById('modal');
+        const graphemes = 'Segmenter' in Intl ? new Intl.Segmenter(undefined, { granularity: 'grapheme' }) : null;
+
+        const hooks = (key) => Array.from(document.querySelectorAll('[data-guide="' + key + '"]'));
+        const within = (key, selector) => hooks(key).flatMap((el) => Array.from(el.querySelectorAll(selector)));
+        const clamp = (v, min, max) => Math.min(Math.max(v, min), max);
+        const rand = (min, max) => min + Math.random() * (max - min);
+
+        // The tour, in order. Steps whose targets are off screen are skipped; `free` ones fall back to open space.
+        const steps = [
+            { els: () => hooks('name'), at: 'above', free: true, text: "Hi! I'm Bryl, welcome to my website! ??" },
+            { els: () => within('socials', 'a'), at: 'below', text: 'Here are my social links.' },
+            { els: () => within('stats', 'a, button'), at: 'below', text: 'Click these for my community, projects and hackathon wins.' },
+            { els: () => hooks('nav-blog'), text: 'I write about AI and engineering here.' },
+            { els: () => hooks('nav-gear'), text: 'My desk setup and everyday kit.' },
+            { els: () => hooks('nav-resources'), text: 'Hand-picked resources for devs and AI engineers.' },
+            { els: () => hooks('nav-collabs'), text: "Brands I've worked with as a creator." },
+            { els: () => hooks('nav-consulting'), text: 'Need training or something built? Start here.' },
+            { els: () => hooks('nav-about'), text: 'And the full story: projects, experience, stack and more.' },
+            { els: () => hooks('chat'), text: 'Say hi in the community chat. Other visitors hang out here!' },
+            { els: () => hooks('email'), text: "Here's my email." },
+            { free: true, text: "That's the tour. Scroll around and enjoy your stay! ??" },
+        ];
+
+        // -- Clock: everything runs off one rAF loop, so the tour pauses with the tab or an open overlay --
+        // `goal` is where the hand means to be; `shown` chases it on a soft spring so nothing ever snaps.
+        const goal = { x: 0, y: 0 };
+        const shown = { x: 0, y: 0, vx: 0, vy: 0 };
+        const SPRING = 190, DAMPING = 2 * Math.sqrt(SPRING) * 0.82;
+        const waiters = [];
+        let clock = 0, last = 0, running = false, away = false, move = null, rest = null, hovered = null;
+        let typing = false, tremor = 1;
+
+        function isAway() {
+            return !desktop.matches
+                || overlays.some((el) => el && el.classList.contains('is-visible'))
+                || (modal && !modal.classList.contains('hidden'));
+        }
+
+        function frame(now) {
+            if (!running) return;
+            const dt = Math.min(now - last, 50);
+            last = now;
+            const nowAway = isAway();
+            if (nowAway !== away) {
+                away = nowAway;
+                root.classList.toggle('is-away', away);
+                if (!desktop.matches) window.profileGaze?.release();
+            }
+            if (!away) {
+                clock += dt;
+                if (move) {
+                    const p = Math.min((clock - move.t0) / move.dur, 1);
+                    const u = Math.pow(p, move.skew);                    // quick launch, long settle
+                    const e = u * u * u * (u * (u * 6 - 15) + 10);       // minimum-jerk: how a hand actually moves
+                    const to = move.to();
+                    const side = 3 * (1 - e) * (1 - e) * e * move.b1 + 3 * (1 - e) * e * e * move.b2;   // bowed (sometimes S-shaped) path
+                    goal.x = move.from.x + (to.x - move.from.x) * e + move.nx * side;
+                    goal.y = move.from.y + (to.y - move.from.y) * e + move.ny * side;
+                    if (p === 1) { const { done } = move; rest = move.to; move = null; done(); }
+                } else if (rest) {
+                    const to = rest();                                   // stay pinned to the target while the page scrolls
+                    goal.x = to.x; goal.y = to.y;
+                }
+
+                const hops = Math.ceil(dt / 12), h = dt / hops / 1000;
+                for (let i = 0; i < hops; i++) {
+                    shown.vx += (SPRING * (goal.x - shown.x) - DAMPING * shown.vx) * h;
+                    shown.vy += (SPRING * (goal.y - shown.y) - DAMPING * shown.vy) * h;
+                    shown.x += shown.vx * h;
+                    shown.y += shown.vy * h;
+                }
+
+                // A resting hand is never perfectly still, but it does let go of the mouse to type.
+                tremor += ((typing ? 0 : 1) - tremor) * Math.min(dt / 280, 1);
+                const x = shown.x + (Math.sin(clock / 830 + 1.3) * 1.5 + Math.sin(clock / 310 + 4.1) * 0.6 + Math.sin(clock / 127) * 0.22) * tremor;
+                const y = shown.y + (Math.cos(clock / 1010 + 0.4) * 1.3 + Math.sin(clock / 370 + 2.2) * 0.55 + Math.cos(clock / 141 + 5) * 0.2) * tremor;
+                root.style.transform = 'translate3d(' + x.toFixed(2) + 'px,' + y.toFixed(2) + 'px,0)';
+                window.profileGaze?.look(x, y);
+                for (let i = waiters.length - 1; i >= 0; i--) {
+                    if (waiters[i].at <= clock) waiters.splice(i, 1)[0].done();
+                }
+            }
+            requestAnimationFrame(frame);
+        }
+
+        const sleep = (ms) => new Promise((done) => waiters.push({ at: clock + ms, done }));
+
+        // One continuous stroke to a (live) point, along a path that never bends the same way twice.
+        function glide(to, dur) {
+            return new Promise((done) => {
+                const from = { x: goal.x, y: goal.y }, target = to();
+                const dx = target.x - from.x, dy = target.y - from.y, dist = Math.hypot(dx, dy) || 1;
+                const b1 = Math.min(dist * rand(0.08, 0.28), 64) * (Math.random() < 0.5 ? -1 : 1);
+                const b2 = Math.random() < 0.3 ? -b1 * rand(0.3, 0.8) : b1 * rand(0.4, 1.1);
+                move = { from, to, t0: clock, dur, skew: rand(0.72, 0.94), nx: -dy / dist, ny: dx / dist, b1, b2, done };
+            });
+        }
+        // A human reach: lands a few pixels off each time, and on longer trips over- or undershoots
+        // before a small corrective nudge.
+        async function moveTo(to, opts = {}) {
+            const off = { x: rand(-2.5, 2.5), y: rand(-1.5, 1.5) };
+            const aim = opts.direct ? to : () => { const t = to(); return { x: t.x + off.x, y: t.y + off.y }; };
+            const target = aim(), dx = target.x - goal.x, dy = target.y - goal.y, dist = Math.hypot(dx, dy) || 1;
+            const dur = (opts.dur || clamp(210 + Math.sqrt(dist) * 25, 330, 1000)) * rand(0.88, 1.15);
+            const roll = Math.random();
+            if (opts.direct || dist < 160 || roll > 0.65) return glide(aim, dur);
+
+            const miss = clamp(dist * rand(0.025, 0.06), 5, 22) * (roll < 0.4 ? 1 : -1);   // past it, or short of it
+            const drift = rand(-0.5, 0.5) * miss;
+            const ox = dx / dist * miss - dy / dist * drift, oy = dy / dist * miss + dx / dist * drift;
+            await glide(() => { const t = aim(); return { x: t.x + ox, y: t.y + oy }; }, dur);
+            await sleep(rand(40, 110));
+            await glide(aim, rand(140, 230));
+        }
+
+        // -- Targets --
+        function visible(el) {
+            const r = el.getBoundingClientRect();
+            if (!r.width || r.top < 0 || r.bottom > innerHeight) return false;
+            const scroller = el.closest('.overflow-y-auto');
+            if (!scroller) return true;
+            const s = scroller.getBoundingClientRect();
+            return r.top >= s.top && r.bottom <= s.bottom;
+        }
+        function anchor(el, at) {
+            return () => {
+                const r = el.getBoundingClientRect();
+                if (at === 'above') return { x: r.left + 6, y: r.top - 24 };
+                if (at === 'below') return { x: r.left + r.width / 2, y: r.bottom + 2 };
+                return { x: r.right + 5, y: r.top + r.height / 2 };
+            };
+        }
+        function openSpace(fx, fy) {
+            const left = sidebar ? sidebar.getBoundingClientRect().right : 0;
+            const point = { x: left + (innerWidth - left) * fx, y: innerHeight * fy };
+            return () => point;
+        }
+        function setHover(el) {
+            if (hovered) hovered.classList.remove('gc-hover');
+            hovered = el || null;
+            if (hovered) hovered.classList.add('gc-hover');
+        }
+
+        // -- Bubble --
+        // Lay the whole message out up front (hidden) so the bubble can grow with the typing
+        // without words jumping between lines.
+        function compose(text) {
+            const parts = graphemes ? Array.from(graphemes.segment(text), (s) => s.segment) : Array.from(text);
+            const chars = parts.map((part) => {
+                const span = document.createElement('span');
+                span.className = 'gc-ch';
+                span.textContent = part;
+                return span;
+            });
+            measure.replaceChildren(...chars);
+            const boxes = chars.map((span) => ({ right: span.offsetLeft + span.offsetWidth, top: span.offsetTop, bottom: span.offsetTop + span.offsetHeight }));
+            // round the width up: a fraction of a pixel short and the last word wraps differently in the bubble
+            return { parts, chars, boxes, width: Math.ceil(measure.getBoundingClientRect().width), height: measure.offsetHeight };
+        }
+        // Flip the bubble above / left of the arrow when it would run off the viewport.
+        function place(point, layout, prefer) {
+            const w = Math.max(name.offsetWidth, layout.width) + 22, h = name.offsetHeight + layout.height + 10;
+            const fitsBelow = point.y + 19 + h + 10 <= innerHeight, fitsAbove = point.y - h - 10 >= 0;
+            root.classList.toggle('is-up', fitsAbove && (prefer === 'above' || !fitsBelow));
+            root.classList.toggle('is-left', point.x + 16 + w + 10 > innerWidth);
+        }
+        async function type(layout) {
+            inner.style.width = layout.width + 'px';
+            inner.replaceChildren(...layout.chars, caret);
+            tag.classList.add('is-talking', 'is-typing');
+            typing = true;
+            const pace = rand(0.85, 1.25);                             // everyone types some sentences faster than others
+            let width = 0;
+            for (let i = 0; i < layout.chars.length; i++) {
+                const box = layout.boxes[i], part = layout.parts[i];
+                layout.chars[i].classList.add('is-on');
+                width = Math.max(width, box.right);
+                clip.style.width = Math.ceil(width) + 2 + 'px';
+                clip.style.height = box.bottom + 'px';
+                caret.style.transform = 'translate(' + box.right + 'px,' + box.top + 'px)';
+                let wait = rand(7, 20) * pace;
+                if (/[.!?]/.test(part)) wait = rand(80, 150);
+                else if (/[,:]/.test(part)) wait = rand(45, 90);
+                else if (part === ' ' && Math.random() < 0.12) wait += rand(60, 150);   // thinking of the next word
+                else if (Math.random() < 0.07) wait += rand(30, 80);                    // a small stumble
+                await sleep(wait);
+            }
+            typing = false;
+            tag.classList.remove('is-typing');
+        }
+        function hush() {
+            clip.style.width = clip.style.height = '0px';
+            tag.classList.remove('is-talking', 'is-typing');
+        }
+
+        async function say(step) {
+            const els = step.els ? step.els().filter(visible) : [];
+            if (!els.length && !step.free) return;
+            const points = els.length ? els.map((el) => anchor(el, step.at)) : [openSpace(rand(0.44, 0.56), rand(0.4, 0.5))];
+            const layout = compose(step.text);
+            hush();
+            place(points[0](), layout, els.length ? step.at : null);
+            setHover(els[0]);
+            await moveTo(points[0]);
+            await sleep(rand(60, 140));
+            await type(layout);
+            if (points.length > 1) {
+                await sleep(rand(550, 800));                         // let the line land before moving on
+                for (let i = 1; i < points.length; i++) {            // sweep across the rest of the group
+                    await sleep(rand(90, 190));
+                    setHover(els[i]);
+                    await moveTo(points[i], { dur: rand(240, 340) });
+                }
+                await sleep(rand(550, 750));
+            } else {
+                await sleep((850 + layout.chars.length * 20) * rand(0.95, 1.15));
+            }
+            setHover(null);
+        }
+
+        // -- Replay prompt --
+        function showPrompt() {
+            if (store.get('guideTourPrompt') !== 'off') prompt.classList.add('is-on');
+        }
+        prompt.querySelector('[data-guide-replay]').addEventListener('click', () => {
+            prompt.classList.remove('is-on');
+            start();
+        });
+        prompt.querySelector('[data-guide-dismiss]').addEventListener('click', () => {
+            prompt.classList.remove('is-on');
+            store.set('guideTourPrompt', 'off');
+        });
+
+        async function run() {
+            await sleep(500);
+            root.classList.add('is-here');
+            store.set('guideTourSeen', '1');
+            for (const step of steps) await say(step);
+
+            // Tour over: wander off the edge of the screen and hand the portrait's gaze back to the visitor.
+            hush();
+            await sleep(rand(300, 500));
+            const exit = { x: innerWidth + 90, y: innerHeight * rand(0.18, 0.42) };
+            await moveTo(() => exit, { direct: true });
+            root.classList.remove('is-here');
+            await sleep(500);
+            running = false;
+            window.profileGaze?.release();
+            showPrompt();
+        }
+
+        // Bryl comes in from off the right edge.
+        function start() {
+            if (running) return;
+            running = true;
+            move = rest = null;
+            goal.x = shown.x = innerWidth + 40;
+            goal.y = shown.y = innerHeight * rand(0.5, 0.7);
+            shown.vx = shown.vy = 0;
+            root.classList.remove('is-up', 'is-left');
+            root.style.transform = 'translate3d(' + goal.x + 'px,' + goal.y + 'px,0)';
+            requestAnimationFrame((now) => { last = now; frame(now); });
+            run();
+        }
+
+        // The tour plays by itself once per browser session (or with ?tour); after that it is on request.
+        if (store.get('guideTourSeen') !== '1' || new URLSearchParams(location.search).has('tour')) start();
+        else showPrompt();
+    })();
+

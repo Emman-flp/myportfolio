@@ -1,0 +1,512 @@
+/* ============================================================================
+   globals.css — bryllim.com recreation
+   Ported from the reference's 9 inline <style> blocks + compiled Tailwind theme.
+   Spec: docs/UI-SPECIFICATION.md §2 (tokens), §5 (custom CSS)
+   ========================================================================== */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ---------------------------------------------------------------------------
+   1. TOKENS — spec §2
+   Tailwind's palette is remapped to these triplets so class names match 1:1.
+   ------------------------------------------------------------------------ */
+@layer base {
+  :root {
+    --bg: 255 255 255;
+    --ink: 10 10 10;
+    --g50: 250 250 250;
+    --g100: 245 245 245;
+    --g200: 233 233 233;
+    --g300: 212 212 212;
+    --g400: 163 163 163;
+    --g500: 115 115 115;
+    --g600: 82 82 82;
+    --g700: 64 64 64;
+    --g800: 38 38 38;
+    --g900: 23 23 23;
+    --g950: 10 10 10;
+    --halftone: rgba(10, 10, 10, 0.9);
+    --sel-bg: #0a0a0a;
+    --sel-fg: #ffffff;
+  }
+
+  html.dark {
+    --bg: 12 12 15;
+    --ink: 244 244 245;
+    --g50: 24 24 27;
+    --g100: 30 30 34;
+    --g200: 42 42 48;
+    --g300: 58 58 66;
+    --g400: 138 138 146;
+    --g500: 160 160 168;
+    --g600: 184 184 192;
+    --g700: 206 206 212;
+    --g800: 228 228 232;
+    --g900: 240 240 243;
+    --g950: 250 250 250;
+    --halftone: rgba(244, 244, 245, 0.42);
+    --sel-bg: #fafafa;
+    --sel-fg: #0a0a0a;
+    color-scheme: dark;
+  }
+
+  /* themed base prevents a flash while the stylesheet loads */
+  html {
+    background-color: rgb(var(--bg));
+    color-scheme: light;
+    line-height: 1.5;
+    -webkit-text-size-adjust: 100%;
+    -moz-tab-size: 4;
+    -o-tab-size: 4;
+    tab-size: 4;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    margin: 0;
+    background-color: rgb(var(--bg));
+    color: rgb(var(--ink));
+    line-height: inherit;
+    font-family: var(--font-geist), Inter, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1, h2, h3, h4, h5, h6 { font-size: inherit; font-weight: inherit; }
+  p, blockquote, dl, dd, figure, pre { margin: 0; }
+  ul, ol, menu { list-style: none; margin: 0; padding: 0; }
+  a { color: inherit; text-decoration: inherit; }
+  b, strong { font-weight: bolder; }
+  img, svg, video { display: block; vertical-align: middle; }
+  img, video { max-width: 100%; height: auto; }
+  code, kbd, pre, samp { font-family: var(--font-geist-mono), ui-monospace, monospace; }
+
+  input, textarea, select, button {
+    font-family: inherit;
+    font-feature-settings: inherit;
+    font-variation-settings: inherit;
+    font-size: 100%;
+    font-weight: inherit;
+    line-height: inherit;
+    letter-spacing: inherit;
+    color: inherit;
+    margin: 0;
+    padding: 0;
+  }
+  input::placeholder, textarea::placeholder {
+    opacity: 1;
+    color: rgb(var(--g400));
+  }
+
+  [role='button'], button { cursor: pointer; }
+
+  ::selection { background: var(--sel-bg); color: var(--sel-fg); }
+
+  /* ADDITION (spec §7): the reference has no visible focus ring. WCAG requires one. */
+  :focus-visible {
+    outline: 2px solid rgb(var(--ink) / 0.45);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  /* ADDITION (spec §7): skip link.
+     Hidden three ways — transform, opacity and pointer-events — so it can never
+     paint or intercept clicks, and so compositing quirks cannot expose it. */
+  .skip-link {
+    position: fixed;
+    top: 0.5rem;
+    left: 0.5rem;
+    z-index: 200;
+    transform: translateY(-300%);
+    opacity: 0;
+    pointer-events: none;
+    transition: transform 0.2s, opacity 0.2s;
+    background: rgb(var(--bg));
+    color: rgb(var(--ink));
+    border: 1px solid rgb(var(--g200));
+    border-radius: 0.375rem;
+    padding: 0.5rem 0.875rem;
+    font-family: var(--font-geist-mono), ui-monospace, monospace;
+    font-size: 12px;
+  }
+  .skip-link:focus {
+    transform: translateY(0);
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   2. FONT FACES
+   Geist / Geist Mono / Source Serif 4 come from next/font/google (CSS vars).
+   Geist Pixel is served from the reference's own CDN — not copied into /public.
+   ------------------------------------------------------------------------ */
+@font-face {
+  font-family: 'Geist Pixel';
+  src: url('https://cdn.jsdelivr.net/gh/vercel/geist-pixel-font@main/fonts/webfonts/GeistPixel-Square.woff2') format('woff2');
+  font-display: swap;
+}
+
+/* ---------------------------------------------------------------------------
+   3. THEME SWITCH — spec §5.1
+   ------------------------------------------------------------------------ */
+.theme-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  padding: 2px;
+  border: 1px solid rgb(var(--g200));
+  border-radius: 9999px;
+}
+.theme-opt {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 9999px;
+  color: rgb(var(--g400));
+  transition: color 0.2s, background-color 0.2s;
+}
+.theme-opt:hover { color: rgb(var(--ink)); }
+.theme-opt.is-active { background: rgb(var(--g100)); color: rgb(var(--ink)); }
+.theme-opt svg { width: 13px; height: 13px; }
+
+/* Coordinated colour crossfade during a theme switch.
+   Only while .theme-anim is set, so it never fights hover/scroll transitions. */
+html.theme-anim,
+html.theme-anim *,
+html.theme-anim *::before,
+html.theme-anim *::after {
+  transition: background-color 0.5s ease, border-color 0.5s ease, color 0.5s ease,
+              fill 0.5s ease, stroke 0.5s ease, box-shadow 0.5s ease, outline-color 0.5s ease !important;
+}
+/* View Transitions: replace the default crossfade with a circular reveal. */
+::view-transition-old(root),
+::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
+@media (prefers-reduced-motion: reduce) {
+  html.theme-anim, html.theme-anim *, html.theme-anim *::before, html.theme-anim *::after {
+    transition: none !important;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   4. HALFTONE TEXTURE + MASKS — spec §5.2
+   The reference's signature visual. Pure CSS, no images.
+   ------------------------------------------------------------------------ */
+.halftone {
+  background-image: radial-gradient(circle at center, rgba(10, 10, 10, 0.9) 1px, transparent 1.6px);
+  background-size: 9px 9px;
+}
+.halftone-dense { background-size: 6px 6px; }
+.halftone-wide  { background-size: 13px 13px; }
+.halftone-fine {
+  background-image: radial-gradient(circle at center, rgba(10, 10, 10, 0.9) 0.8px, transparent 1.3px);
+  background-size: 5px 5px;
+}
+
+.mask-tr  { -webkit-mask-image: radial-gradient(ellipse 80% 80% at 100% 0%, #000 0%, transparent 65%);            mask-image: radial-gradient(ellipse 80% 80% at 100% 0%, #000 0%, transparent 65%); }
+.mask-bl  { -webkit-mask-image: radial-gradient(ellipse 80% 80% at 0% 100%, #000 0%, transparent 65%);            mask-image: radial-gradient(ellipse 80% 80% at 0% 100%, #000 0%, transparent 65%); }
+.mask-l   { -webkit-mask-image: radial-gradient(ellipse 70% 60% at 0% 50%, #000 0%, transparent 70%);             mask-image: radial-gradient(ellipse 70% 60% at 0% 50%, #000 0%, transparent 70%); }
+.mask-circle { -webkit-mask-image: radial-gradient(circle at center, #000 35%, transparent 70%);                 mask-image: radial-gradient(circle at center, #000 35%, transparent 70%); }
+.mask-fade-x { -webkit-mask-image: linear-gradient(to right, transparent, #000 30%, #000 70%, transparent);    mask-image: linear-gradient(to right, transparent, #000 30%, #000 70%, transparent); }
+.mask-up     { -webkit-mask-image: linear-gradient(to top, #000, transparent 80%);                             mask-image: linear-gradient(to top, #000, transparent 80%); }
+.mask-down   { -webkit-mask-image: linear-gradient(to bottom, #000, transparent);                               mask-image: linear-gradient(to bottom, #000, transparent); }
+/* The photo's bottom edge dissolves so the halftone shows through */
+.photo-dissolve    { -webkit-mask-image: linear-gradient(to top, transparent 1%, #000 33%);                    mask-image: linear-gradient(to top, transparent 1%, #000 33%); }
+.photo-fade-bottom { -webkit-mask-image: linear-gradient(to top, transparent 0%, #000 45%);                    mask-image: linear-gradient(to top, transparent 0%, #000 45%); }
+/* Divider that fades at both edges (used under the hero and above the footer) */
+.edge-fade-divider {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 12%, #000 88%, transparent);
+          mask-image: linear-gradient(to right, transparent, #000 12%, #000 88%, transparent);
+}
+
+/* dark mode: flip the dot colour */
+html.dark .halftone,
+html.dark .halftone-dense,
+html.dark .halftone-wide {
+  background-image: radial-gradient(circle at center, var(--halftone) 1px, transparent 1.6px);
+}
+html.dark .halftone-fine {
+  background-image: radial-gradient(circle at center, var(--halftone) 0.8px, transparent 1.3px);
+}
+/* dark dithered textures invert so they show on dark surfaces */
+html.dark .dither-corner { filter: invert(1); }
+
+/* ---------------------------------------------------------------------------
+   5. ENTRANCE + GLOBAL TRANSITIONS — spec §5.3
+   ------------------------------------------------------------------------ */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: none; }
+}
+.reveal {
+  opacity: 0;
+  animation: fadeUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.d1 { animation-delay: 0.05s; }
+.d2 { animation-delay: 0.12s; }
+.d3 { animation-delay: 0.19s; }
+.d4 { animation-delay: 0.26s; }
+.d5 { animation-delay: 0.33s; }
+.d6 { animation-delay: 0.40s; }
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.25; }
+}
+.pulse-dot { animation: blink 1.8s ease-in-out infinite; }
+
+a, button {
+  transition: color 0.2s, background-color 0.2s, border-color 0.2s, opacity 0.2s, transform 0.2s;
+}
+
+.rec-quote {
+  font-family: var(--font-source-serif-4), Georgia, 'Times New Roman', serif;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal { opacity: 1 !important; filter: none !important; animation: none !important; }
+}
+
+/* ---------------------------------------------------------------------------
+   6. CARD DECK — spec §5.4
+   Full-bleed below 768px; inline from 768px.
+   ------------------------------------------------------------------------ */
+.deck {
+  position: relative;
+  height: 19rem;
+  margin-inline: calc(50% - 50vw);
+  overflow-x: clip;
+  overflow-y: visible;
+}
+@supports not (overflow-x: clip) {
+  .deck { overflow-x: hidden; }
+}
+@media (min-width: 640px) { .deck { height: 17rem; } }
+@media (min-width: 768px) { .deck { margin-inline: 0; overflow: visible; } }
+
+.deck-card {
+  position: absolute;
+  top: 0.75rem;
+  left: 50%;
+  width: 18rem;
+  margin-left: -9rem;
+  transform-origin: center bottom;
+  transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.35s ease;
+  will-change: transform;
+  outline: none;
+}
+@media (min-width: 640px) {
+  .deck-card { width: 20.5rem; margin-left: -10.25rem; }
+}
+
+.deck-card.is-center {
+  transform: translateY(0) rotate(0deg) scale(1);
+  z-index: 30;
+  box-shadow: 0 26px 55px -22px rgba(10, 10, 10, 0.30);
+}
+.deck-card.is-left {
+  transform: translateX(-40%) translateY(14px) rotate(-16deg) scale(0.88);
+  z-index: 10;
+  box-shadow: 0 16px 32px -18px rgba(10, 10, 10, 0.25);
+  cursor: pointer;
+}
+.deck-card.is-right {
+  transform: translateX(40%) translateY(14px) rotate(16deg) scale(0.88);
+  z-index: 20;
+  box-shadow: 0 16px 32px -18px rgba(10, 10, 10, 0.25);
+  cursor: pointer;
+}
+
+/* dim the back cards a touch so the centre pops */
+.deck-card.is-left::after,
+.deck-card.is-right::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: rgb(var(--bg) / 0.4);
+  transition: background 0.35s ease;
+  pointer-events: none;
+}
+.deck-card.is-left:hover::after,
+.deck-card.is-right:hover::after { background: rgb(var(--bg) / 0); }
+
+/* hover lifts */
+.deck-card.is-center:hover {
+  transform: translateY(-7px) scale(1.015);
+  box-shadow: 0 34px 65px -22px rgba(10, 10, 10, 0.34);
+}
+.deck-card.is-left:hover {
+  transform: translateX(-45%) translateY(2px) rotate(-12deg) scale(0.92);
+  z-index: 25;
+}
+.deck-card.is-right:hover {
+  transform: translateX(45%) translateY(2px) rotate(12deg) scale(0.92);
+  z-index: 25;
+}
+
+/* only the centre card's links are clickable */
+.deck-card:not(.is-center) a { pointer-events: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .deck-card { transition: box-shadow 0.35s ease; }
+  .deck-card.is-center:hover,
+  .deck-card.is-left:hover,
+  .deck-card.is-right:hover { transform: none; }
+}
+
+/* ---------------------------------------------------------------------------
+   7. PRESENCE — spec §5.5
+   ------------------------------------------------------------------------ */
+.presence-avatar {
+  width: 19px;
+  height: 19px;
+  border-radius: 50%;
+  flex: none;
+  background: rgb(var(--g100));
+  box-shadow: 0 0 0 1.5px rgb(var(--bg)), 0 0 0 2.5px rgb(var(--g200));
+}
+.presence-icons > .presence-avatar + .presence-avatar { margin-left: -6px; }
+.presence-more {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 19px;
+  height: 19px;
+  margin-left: -6px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: rgb(var(--g200));
+  box-shadow: 0 0 0 1.5px rgb(var(--bg)), 0 0 0 2.5px rgb(var(--g300));
+  color: rgb(var(--g500));
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 1;
+}
+.presence-label {
+  font-family: 'Geist Pixel', var(--font-geist-mono), monospace;
+}
+.presence-num { font-weight: 700; color: rgb(var(--ink)); }
+
+/* ---------------------------------------------------------------------------
+   8. MOBILE DRAWER — spec §5.5
+   ------------------------------------------------------------------------ */
+#mobileNav { opacity: 0; transition: opacity 0.3s ease; }
+#mobileNav.is-open { opacity: 1; }
+#mobileNav .mnav-group {
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity 0.45s ease, transform 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+}
+#mobileNav.is-open .mnav-group { opacity: 1; transform: none; }
+
+/* ---------------------------------------------------------------------------
+   9. PAGE ENTER (inner pages) — spec §5.7
+   ------------------------------------------------------------------------ */
+@keyframes pageEnterFadeUp {
+  from { transform: translateY(10px); }
+  to   { transform: none; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .page-enter-motion { animation: pageEnterFadeUp 420ms cubic-bezier(0.2, 0, 0, 1) both !important; }
+}
+
+/* ---------------------------------------------------------------------------
+   10. UTILITIES the reference defines that Tailwind v3 lacks
+   ------------------------------------------------------------------------ */
+/* .font-pixel is generated by tailwind.config.ts from the fontFamily map. */
+
+/* Prose for blog posts — derived from the reference's article styling. */
+.prose-post {
+  font-family: var(--font-source-serif-4), Georgia, serif;
+  font-size: 17px;
+  line-height: 1.75;
+  color: rgb(var(--g700));
+}
+.prose-post > * + * { margin-top: 1.35em; }
+.prose-post h2 {
+  font-family: var(--font-geist-pixel), var(--font-geist-mono), monospace;
+  font-size: 22px;
+  line-height: 1.3;
+  color: rgb(var(--ink));
+  margin-top: 2.2em;
+}
+.prose-post h3 {
+  font-family: var(--font-geist), Inter, system-ui, sans-serif;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: rgb(var(--ink));
+  margin-top: 1.9em;
+}
+.prose-post a {
+  color: rgb(var(--ink));
+  text-decoration: underline;
+  text-decoration-color: rgb(var(--ink) / 0.25);
+  text-underline-offset: 3px;
+}
+.prose-post a:hover { text-decoration-color: rgb(var(--ink)); }
+.prose-post ul, .prose-post ol { padding-left: 1.4em; }
+.prose-post ul { list-style: disc; }
+.prose-post ol { list-style: decimal; }
+.prose-post li + li { margin-top: 0.45em; }
+.prose-post blockquote {
+  border-left: 2px solid rgb(var(--g200));
+  padding-left: 1.1em;
+  color: rgb(var(--g600));
+  font-style: italic;
+}
+.prose-post code {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.86em;
+  background: rgb(var(--g100));
+  border-radius: 4px;
+  padding: 0.12em 0.36em;
+}
+.prose-post pre {
+  background: rgb(var(--g950));
+  color: rgb(var(--bg));
+  border-radius: 10px;
+  padding: 1.1rem 1.25rem;
+  overflow-x: auto;
+  font-size: 13px;
+  line-height: 1.65;
+}
+.prose-post pre code { background: none; padding: 0; font-size: inherit; }
+.prose-post hr { border: 0; border-top: 1px solid rgb(var(--g200)); margin: 2.4em 0; }
+.prose-post img { border-radius: 10px; border: 1px solid rgb(var(--g200)); }
+
+/* ---------------------------------------------------------------------------
+   11. OVERLAY PRIMITIVES — spec §5.8
+   Wave B. Shell classes ported here so the overlays drop straight in.
+   ------------------------------------------------------------------------ */
+.overlay-root {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 1.5rem;
+}
+.overlay-root.is-visible { display: flex; }
+.overlay-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgb(var(--g50) / 0.82);
+  -webkit-backdrop-filter: blur(12px);
+          backdrop-filter: blur(12px);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+.overlay-root.is-open .overlay-backdrop { opacity: 1; }
+
+/* caret shared by Ask and Typing */
+@keyframes caretBlink {
+  0%   { opacity: 1; }
+  50%  { opacity: 0; }
+  100% { opacity: 1; }
+}
