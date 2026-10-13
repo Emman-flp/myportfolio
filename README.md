@@ -255,6 +255,38 @@ boundary, since middleware can be bypassed.
 ### Before deploying
 
 - Set a real `ADMIN_PASSWORD`
-- **Rotate `SUPABASE_SERVICE_ROLE_KEY`.** It was pasted into a chat log during
-  setup. Supabase → Settings → API Keys → Reset.
-- Add the env vars to Vercel; `.env.local` is gitignored and will not deploy.
+- Rotate the leaked service-role key (below)
+- Add the env vars to Vercel; `.env.local` is gitignored and will not deploy
+
+### Rotating the service-role key
+
+The key was pasted into a chat log during setup. **There is no `Reset` button**
+— Supabase replaced the old UI. The current keys are the legacy JWT format
+(`eyJ…`, expiring 2036) and keep working; rotation is optional but cheap.
+
+1. Open
+   `https://supabase.com/dashboard/project/<ref>/settings/api-keys`
+   — note `api-keys`, not `api`. There is no longer a separate Settings → API page.
+2. Switch to the **Publishable and secret API keys** tab. If your project is
+   still on legacy keys only, the legacy tab is fine — create a **secret key**
+   there instead.
+3. **Create new secret key**, name it, and copy it.
+4. Replace `SUPABASE_SERVICE_ROLE_KEY` in `.env.local` and restart the dev server.
+5. Confirm the site and `/admin` still work.
+6. **Only then** delete the old key. Deleting a secret key is irreversible.
+
+Do not paste the new key into chat, and never into a screenshot.
+
+**The code is already compatible with both key formats.** `supabase-js` handles
+the new `sb_publishable_…` / `sb_secret_…` keys without configuration — its
+Functions client already omits the key from the `Authorization` header, which is
+where `Invalid JWT` would otherwise bite, and the data API accepts it there for
+migration compatibility. Verify with:
+
+```powershell
+node scripts/verify-key-formats.mjs
+```
+
+which asserts the headers on both fetch paths for both formats. The explanation
+for why no client option is needed lives above `admin()` in
+`src/lib/supabase/admin.ts`.
