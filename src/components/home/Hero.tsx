@@ -13,6 +13,9 @@ export function Hero({ profile = PROFILE }: { profile?: Profile }) {
           {/* faceY measured off this crop with scripts/preview-portrait.mjs:
               the eye line sits at 46% of the frame. The reference's own value
               is 0.45, measured against its headshot. */}
+          {/* Add gazeBase="/gaze" once you have the nine variants in public/gaze/ —
+            the component then swaps images instead of nudging the frame.
+            See docs/GAZE-IMAGES.md for the prompts. */}
           <GazePortrait alt={name} src="/portrait.webp" faceY={0.46} />
         </div>
 

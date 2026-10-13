@@ -129,13 +129,20 @@ export function GazePortrait({
         }
       }
 
-      if (srcSwapOk) face.src = `${gazeBase}/${direction}.webp`
-      face.dataset.direction = direction
+      if (srcSwapOk) {
+        face.src = `${gazeBase}/${direction}.webp`
+        // Swapping the image IS the whole effect, exactly as in the reference.
+        // Nudging the frame as well would double the movement and read as the
+        // whole photo sliding rather than just the gaze changing.
+        stage.style.transform = ''
+      } else {
+        // Fallback: a small shift + turn, using the portrait's own box so it
+        // scales with whatever size it renders at.
+        const { x, y, rotate } = FALLBACK_NUDGE[direction]
+        stage.style.transform = `translate(${(x * 100).toFixed(2)}%, ${(y * 100).toFixed(2)}%) rotate(${rotate}deg)`
+      }
 
-      // Fallback path: a small shift + turn, using the portrait's own box so it
-      // scales with whatever size it renders at.
-      const { x, y, rotate } = FALLBACK_NUDGE[direction]
-      stage.style.transform = `translate(${(x * 100).toFixed(2)}%, ${(y * 100).toFixed(2)}%) rotate(${rotate}deg)`
+      face.dataset.direction = direction
     }
 
     let position: { x: number; y: number } | null = null
