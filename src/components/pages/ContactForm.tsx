@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useActionState } from 'react'
 import { CONTACT_BUDGET_OPTIONS, CONTACT_TIMELINE_OPTIONS } from '@/lib/fixtures'
+import { submitContact, type SubmitState } from '@/app/contact/actions'
 
 /**
  * Spec §8 — the reference hosts its contact form on /collabs; we have no
@@ -9,22 +10,8 @@ import { CONTACT_BUDGET_OPTIONS, CONTACT_TIMELINE_OPTIONS } from '@/lib/fixtures
  * reference's form exactly.
  */
 export function ContactForm() {
-  const [state, setState] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle')
-
-  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    const form = e.currentTarget
-    const data = Object.fromEntries(new FormData(form).entries())
-
-    setState('sending')
-    // Phase 7: POST to a server action that writes to Supabase `messages`.
-    // Until then we log and confirm, so the interaction is testable.
-    console.log('[contact: not yet wired to Supabase]', data)
-    setTimeout(() => {
-      setState('sent')
-      form.reset()
-    }, 500)
-  }
+  const [state, formAction, pending] = useActionState<SubmitState, FormData>(submitContact, { ok: false })
+  const sent = state.ok
 
   return (
     <section className="reveal mt-10 scroll-mt-24 overflow-hidden rounded-2xl border border-gray-200">
@@ -40,103 +27,105 @@ export function ContactForm() {
       </div>
 
       <div className="px-6 py-7 sm:px-8 sm:py-8">
-        <form onSubmit={onSubmit} className="grid gap-5 sm:grid-cols-2">
-          <Field label="name" htmlFor="c-name">
-            <input
-              id="c-name"
-              name="name"
-              required
-              autoComplete="name"
-              placeholder="Your name"
-              className={input}
-            />
-          </Field>
-
-          <Field label="email" htmlFor="c-email">
-            <input
-              id="c-email"
-              name="email"
-              type="email"
-              required
-              autoComplete="email"
-              placeholder="you@company.com"
-              className={input}
-            />
-          </Field>
-
-          <Field label="organisation" htmlFor="c-org">
-            <input
-              id="c-org"
-              name="organisation"
-              autoComplete="organization"
-              placeholder="Company or school"
-              className={input}
-            />
-          </Field>
-
-          <Field label="role" htmlFor="c-role">
-            <input
-              id="c-role"
-              name="role"
-              placeholder="Your role"
-              className={input}
-            />
-          </Field>
-
-          <Field label="scope" htmlFor="c-budget">
-            <select id="c-budget" name="budget" defaultValue={CONTACT_BUDGET_OPTIONS[0]} className={input}>
-              {CONTACT_BUDGET_OPTIONS.map((o) => (
-                <option key={o} value={o}>
-                  {o}
-                </option>
-              ))}
-            </select>
-          </Field>
-
-          <Field label="timeline" htmlFor="c-timeline">
-            <select
-              id="c-timeline"
-              name="timeline"
-              defaultValue={CONTACT_TIMELINE_OPTIONS[0]}
-              className={input}
-            >
-              {CONTACT_TIMELINE_OPTIONS.map((o) => (
-                <option key={o} value={o}>
-                  {o}
-                </option>
-              ))}
-            </select>
-          </Field>
-
-          <div className="sm:col-span-2">
-            <label htmlFor="c-details" className={label}>
-              details
-            </label>
-            <textarea
-              id="c-details"
-              name="details"
-              rows={5}
-              placeholder="What are you working on, and what would help?"
-              className={`${input} resize-y`}
-            />
+        {sent ? (
+          <div className="py-6 text-center">
+            <p className="font-pixel text-lg leading-none">message sent</p>
+            <p className="mt-2 text-sm text-gray-500">Thanks — I will get back to you.</p>
           </div>
+        ) : (
+          <form action={formAction} className="grid gap-5 sm:grid-cols-2">
+            {/* honeypot — hidden from humans, tempting to bots */}
+            <div aria-hidden="true" className="absolute left-[-9999px] h-px w-px overflow-hidden">
+              <label htmlFor="c-company">Company (leave blank)</label>
+              <input id="c-company" name="_company" type="text" tabIndex={-1} autoComplete="off" />
+            </div>
 
-          <div className="flex flex-col items-start justify-between gap-3 sm:col-span-2 sm:flex-row sm:items-center">
-            <p className="font-mono text-[11px] text-gray-400" role="status" aria-live="polite">
-              {state === 'sent' ? 'Thanks — your message has been recorded.' : null}
-              {state === 'sending' ? 'Sending…' : null}
-              {state === 'error' ? 'Something went wrong. Please try again.' : null}
-            </p>
-            <button
-              type="submit"
-              disabled={state === 'sending'}
-              className="inline-flex items-center gap-2 rounded-lg bg-ink px-5 py-2.5 text-[13px] font-medium text-white transition hover:bg-gray-800 disabled:opacity-60"
-            >
-              {state === 'sending' ? 'Sending…' : 'Send message'}
-              <span aria-hidden="true">↗</span>
-            </button>
-          </div>
-        </form>
+            <Field label="name" htmlFor="c-name">
+              <input
+                id="c-name"
+                name="name"
+                required
+                autoComplete="name"
+                placeholder="Your name"
+                className={input}
+              />
+            </Field>
+
+            <Field label="email" htmlFor="c-email">
+              <input
+                id="c-email"
+                name="email"
+                type="email"
+                required
+                autoComplete="email"
+                placeholder="you@company.com"
+                className={input}
+              />
+            </Field>
+
+            <Field label="organisation" htmlFor="c-org">
+              <input
+                id="c-org"
+                name="organisation"
+                autoComplete="organization"
+                placeholder="Company or school"
+                className={input}
+              />
+            </Field>
+
+            <Field label="role" htmlFor="c-role">
+              <input id="c-role" name="role" placeholder="Your role" className={input} />
+            </Field>
+
+            <Field label="scope" htmlFor="c-budget">
+              <select id="c-budget" name="budget" defaultValue={CONTACT_BUDGET_OPTIONS[0]} className={input}>
+                {CONTACT_BUDGET_OPTIONS.map((o) => (
+                  <option key={o} value={o}>
+                    {o}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <Field label="timeline" htmlFor="c-timeline">
+              <select id="c-timeline" name="timeline" defaultValue={CONTACT_TIMELINE_OPTIONS[0]} className={input}>
+                {CONTACT_TIMELINE_OPTIONS.map((o) => (
+                  <option key={o} value={o}>
+                    {o}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <div className="sm:col-span-2">
+              <label htmlFor="c-details" className={label}>
+                details
+              </label>
+              <textarea
+                id="c-details"
+                name="details"
+                rows={5}
+                maxLength={5000}
+                placeholder="What are you working on, and what would help?"
+                className={`${input} resize-y`}
+              />
+            </div>
+
+            <div className="flex flex-col items-start justify-between gap-3 sm:col-span-2 sm:flex-row sm:items-center">
+              <p className="font-mono text-[11px] text-red-600" role="status" aria-live="polite">
+                {state.error ?? ''}
+              </p>
+              <button
+                type="submit"
+                disabled={pending}
+                className="inline-flex items-center gap-2 rounded-lg bg-ink px-5 py-2.5 text-[13px] font-medium text-white transition hover:bg-gray-800 disabled:opacity-60"
+              >
+                {pending ? 'Sending…' : 'Send message'}
+                <span aria-hidden="true">↗</span>
+              </button>
+            </div>
+          </form>
+        )}
       </div>
     </section>
   )

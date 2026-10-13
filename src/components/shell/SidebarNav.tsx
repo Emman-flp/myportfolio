@@ -2,6 +2,7 @@ import { Fragment } from 'react'
 import { Icon } from '@/components/primitives/Icon'
 import { ThemeSwitch } from './ThemeSwitch'
 import { PresenceBlock } from './PresenceBlock'
+import { OverlayTriggers } from './OverlayTriggers'
 import { NAV } from '@/lib/nav'
 import { PROFILE } from '@/lib/fixtures'
 import { NavLinks } from './NavLinks'
@@ -52,6 +53,8 @@ export function SidebarNav() {
         chatClass="mt-3.5 font-mono text-[12px] text-gray-500"
         iconClass="h-4 w-4"
       />
+
+      <OverlayTriggers />
 
       <div className="mt-6 shrink-0">
         <div className="mb-4 flex items-center gap-2">

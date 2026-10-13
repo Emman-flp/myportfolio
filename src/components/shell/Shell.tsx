@@ -6,6 +6,7 @@ import { SidebarNav } from './SidebarNav'
 import { MobileHeader } from './MobileHeader'
 import { MobileNav } from './MobileNav'
 import { SiteFooter } from './SiteFooter'
+import { OverlayHost } from '@/components/overlays/OverlayHost'
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -21,6 +22,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
       <SidebarNav />
       <MobileHeader onOpen={() => setDrawerOpen(true)} />
       <MobileNav open={drawerOpen} onClose={() => setDrawerOpen(false)} />
+      <OverlayHost />
 
       {children}
 
