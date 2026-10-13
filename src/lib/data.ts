@@ -1,3 +1,5 @@
+import { existsSync } from 'node:fs'
+import path from 'node:path'
 import { readContent } from './store'
 import { admin, isConfigured } from './supabase/admin'
 import {
@@ -6,7 +8,6 @@ import {
   PLACEHOLDER_EXPERIENCE,
   PLACEHOLDER_EXPERIENCE_ORGS,
   PLACEHOLDER_POSTS,
-  PLACEHOLDER_PROJECTS,
   PLACEHOLDER_PROJECT_DETAILS,
   PLACEHOLDER_PROJECT_STACK,
   PLACEHOLDER_PROFILE_FALLBACK,
@@ -36,6 +37,12 @@ import type {
  *   3. fixtures   — `lib/fixtures.ts`, so the layout always renders correctly
  *
  * The public UI therefore never errors, whatever state the backend is in.
+ *
+ * ⚠️ The tiers are consulted **per collection**, not per backend. A live but
+ * empty Supabase table falls through to the local store rather than showing
+ * nothing — that is the state right after `0001_init.sql` runs, and silently
+ * blanking the site then would look like data loss. See `getSourceSummary()`
+ * and the admin Overview, which surface the mismatch.
  */
 
 export type Source = 'supabase' | 'local' | 'fixtures'
@@ -61,24 +68,88 @@ export function resetProbe() {
   liveCache = null
 }
 
-/** Which backend is actually serving content right now. */
+/** Which backend is serving the most content. */
 export async function getSource(): Promise<Source> {
-  if (await hasLiveData()) return 'supabase'
+  if (await hasLiveData()) {
+    const { data } = await admin().from('profile').select('id').limit(1)
+    if (data?.length) return 'supabase'
+  }
+  return existsSync(path.join(process.cwd(), 'content', 'content.json'))
+    ? 'local'
+    : 'fixtures'
+}
 
-  // A local store exists only after the admin has written to it once.
-  const { existsSync } = await import('node:fs')
-  const path = await import('node:path')
-  return existsSync(path.join(process.cwd(), 'content', 'content.json')) ? 'local' : 'fixtures'
+/** Row counts per collection, so the admin can show a half-migrated state. */
+export async function getSourceSummary(): Promise<{
+  supabase: Record<string, number>
+  local: Record<string, number>
+}> {
+  const local = await readContent()
+  const localCounts: Record<string, number> = {}
+  for (const [k, v] of Object.entries(local)) {
+    if (Array.isArray(v)) localCounts[k] = v.length
+  }
+
+  const supabaseCounts: Record<string, number> = {}
+  if (await hasLiveData()) {
+    const tables = [
+      'profile',
+      'projects',
+      'project_stack',
+      'experience_orgs',
+      'skills',
+      'skill_groups',
+      'certifications',
+      'affiliations',
+      'posts',
+      'resource_groups',
+      'resources',
+    ]
+    await Promise.all(
+      tables.map(async (t) => {
+        try {
+          const { count, error } = await admin()
+            .from(t as never)
+            .select('*', { count: 'exact', head: true })
+          if (!error) supabaseCounts[t] = count ?? 0
+        } catch {
+          /* table may not exist */
+        }
+      }),
+    )
+  }
+
+  return { supabase: supabaseCounts, local: localCounts }
+}
+
+/**
+ * Core of the fallback chain.
+ *
+ * `live` is whatever Supabase returned (null when unreachable, empty array when
+ * the table has no rows). Whichever tier first produces rows wins; otherwise the
+ * fixtures do, so a page always has something to lay out.
+ */
+function pick<T>(live: T[] | null | undefined, local: T[] | null | undefined, fallback: T[]): T[] {
+  if (live && live.length) return live
+  if (local && local.length) return local
+  return fallback
+}
+
+/** Same chain for a single row. */
+function pickOne<T>(live: T | null | undefined, local: T | null | undefined, fallback: T): T {
+  return live ?? local ?? fallback
 }
 
 /* ---- profile -------------------------------------------------------------- */
 
 export async function getProfile(): Promise<Profile> {
+  let live: Profile | null = null
+
   if (await hasLiveData()) {
     try {
       const { data, error } = await admin().from('profile').select('*').limit(1).maybeSingle()
       if (!error && data) {
-        return {
+        live = {
           name: data.name,
           tagline: data.tagline ?? '',
           description: data.description ?? '',
@@ -92,22 +163,23 @@ export async function getProfile(): Promise<Profile> {
       /* fall through */
     }
   }
+
   const { profile } = await readContent()
-  return profile ?? PLACEHOLDER_PROFILE_FALLBACK
+  return pickOne(live, profile, PLACEHOLDER_PROFILE_FALLBACK)
 }
 
 /* ---- projects ------------------------------------------------------------- */
 
 export async function getProjects(limit?: number): Promise<ProjectDetail[]> {
-  let list: ProjectDetail[] = PLACEHOLDER_PROJECTS as ProjectDetail[]
+  let live: ProjectDetail[] | null = null
 
   if (await hasLiveData()) {
     try {
       let q = admin().from('projects').select('*').eq('published', true).order('sort_order')
       if (limit) q = q.limit(limit)
       const { data, error } = await q
-      if (!error && data?.length) {
-        return data.map((r) => ({
+      if (!error && data) {
+        live = data.map((r) => ({
           id: r.id,
           title: r.title,
           summary: r.summary ?? '',
@@ -122,31 +194,36 @@ export async function getProjects(limit?: number): Promise<ProjectDetail[]> {
     } catch {
       /* fall through */
     }
-  } else {
-    list = (await readContent()).projects
   }
 
+  const list = pick(live, (await readContent()).projects, PLACEHOLDER_PROJECT_DETAILS)
   return limit ? list.slice(0, limit) : list
 }
 
 export async function getProjectStack(): Promise<ProjectStackRow[]> {
+  let live: ProjectStackRow[] | null = null
+
   if (await hasLiveData()) {
     try {
-      const { data, error } = await admin().from('project_stack').select('*').eq('published', true).order('sort_order')
-      if (!error && data?.length) return data as ProjectStackRow[]
+      const { data, error } = await admin()
+        .from('project_stack')
+        .select('*')
+        .eq('published', true)
+        .order('sort_order')
+      if (!error && data) live = data as ProjectStackRow[]
     } catch {
       /* fall through */
     }
-  } else {
-    const rows = (await readContent()).projectStack
-    if (rows?.length) return rows
   }
-  return PLACEHOLDER_PROJECT_STACK
+
+  return pick(live, (await readContent()).projectStack, PLACEHOLDER_PROJECT_STACK)
 }
 
 /* ---- experience ----------------------------------------------------------- */
 
 export async function getExperienceOrgs(): Promise<ExperienceOrg[]> {
+  let live: ExperienceOrg[] | null = null
+
   if (await hasLiveData()) {
     try {
       const { data: orgs, error } = await admin()
@@ -155,9 +232,9 @@ export async function getExperienceOrgs(): Promise<ExperienceOrg[]> {
         .eq('published', true)
         .order('sort_order')
 
-      if (!error && orgs?.length) {
+      if (!error && orgs) {
         const { data: roles } = await admin().from('experience_roles').select('*').order('sort_order')
-        return orgs.map((o) => ({
+        live = orgs.map((o) => ({
           id: o.id,
           monogram: o.monogram ?? '',
           name: o.name,
@@ -178,16 +255,13 @@ export async function getExperienceOrgs(): Promise<ExperienceOrg[]> {
     } catch {
       /* fall through */
     }
-  } else {
-    const orgs = (await readContent()).experienceOrgs
-    if (orgs?.length) return orgs
   }
-  return PLACEHOLDER_EXPERIENCE_ORGS
+
+  return pick(live, (await readContent()).experienceOrgs, PLACEHOLDER_EXPERIENCE_ORGS)
 }
 
 export async function getExperienceEntries(limit = 4): Promise<ExperienceEntry[]> {
   const orgs = await getExperienceOrgs()
-  if (orgs === PLACEHOLDER_EXPERIENCE_ORGS) return PLACEHOLDER_EXPERIENCE.slice(0, limit)
   return orgs
     .flatMap((o) => o.roles.map((r) => ({ id: r.id, period: r.period, role: r.title, org: o.name })))
     .slice(0, limit)
@@ -196,12 +270,18 @@ export async function getExperienceEntries(limit = 4): Promise<ExperienceEntry[]
 /* ---- skills --------------------------------------------------------------- */
 
 export async function getStackGroups(): Promise<StackGroup[]> {
+  let live: StackGroup[] | null = null
+
   if (await hasLiveData()) {
     try {
       const { data: groups, error } = await admin().from('skill_groups').select('*').order('sort_order')
-      if (!error && groups?.length) {
-        const { data: skills } = await admin().from('skills').select('*').eq('published', true).order('sort_order')
-        return groups.map((g) => ({
+      if (!error && groups) {
+        const { data: skills } = await admin()
+          .from('skills')
+          .select('*')
+          .eq('published', true)
+          .order('sort_order')
+        live = groups.map((g) => ({
           id: g.id,
           title: g.title,
           items: (skills ?? []).filter((s) => s.group_id === g.id).map((s) => s.name),
@@ -210,27 +290,31 @@ export async function getStackGroups(): Promise<StackGroup[]> {
     } catch {
       /* fall through */
     }
-  } else {
-    const groups = (await readContent()).skillGroups
-    if (groups?.length) return groups
   }
-  return PLACEHOLDER_STACK_GROUPS
+
+  return pick(live, (await readContent()).skillGroups, PLACEHOLDER_STACK_GROUPS)
 }
 
 export async function getStackChips(limit = 10): Promise<string[]> {
   const groups = await getStackGroups()
-  if (groups === PLACEHOLDER_STACK_GROUPS) return PLACEHOLDER_STACK.slice(0, limit)
-  return groups.flatMap((g) => g.items).slice(0, limit)
+  const chips = groups.flatMap((g) => g.items)
+  return chips.length ? chips.slice(0, limit) : PLACEHOLDER_STACK.slice(0, limit)
 }
 
 /* ---- certifications / affiliations ---------------------------------------- */
 
 export async function getCertifications(): Promise<Cert[]> {
+  let live: Cert[] | null = null
+
   if (await hasLiveData()) {
     try {
-      const { data, error } = await admin().from('certifications').select('*').eq('published', true).order('sort_order')
-      if (!error && data?.length) {
-        return data.map((c) => ({
+      const { data, error } = await admin()
+        .from('certifications')
+        .select('*')
+        .eq('published', true)
+        .order('sort_order')
+      if (!error && data) {
+        live = data.map((c) => ({
           id: c.id,
           name: c.name,
           issuer: c.issuer ?? '',
@@ -241,19 +325,23 @@ export async function getCertifications(): Promise<Cert[]> {
     } catch {
       /* fall through */
     }
-  } else {
-    const rows = (await readContent()).certifications
-    if (rows?.length) return rows
   }
-  return PLACEHOLDER_CERTS
+
+  return pick(live, (await readContent()).certifications, PLACEHOLDER_CERTS)
 }
 
 export async function getAffiliations(): Promise<Affiliation[]> {
+  let live: Affiliation[] | null = null
+
   if (await hasLiveData()) {
     try {
-      const { data, error } = await admin().from('affiliations').select('*').eq('published', true).order('sort_order')
-      if (!error && data?.length) {
-        return data.map((a) => ({
+      const { data, error } = await admin()
+        .from('affiliations')
+        .select('*')
+        .eq('published', true)
+        .order('sort_order')
+      if (!error && data) {
+        live = data.map((a) => ({
           id: a.id,
           name: a.name,
           role: a.role ?? '',
@@ -265,30 +353,31 @@ export async function getAffiliations(): Promise<Affiliation[]> {
     } catch {
       /* fall through */
     }
-  } else {
-    const rows = (await readContent()).affiliations
-    if (rows?.length) return rows
   }
-  return PLACEHOLDER_AFFILIATIONS
+
+  return pick(live, (await readContent()).affiliations, PLACEHOLDER_AFFILIATIONS)
 }
 
 /* ---- posts ---------------------------------------------------------------- */
 
 export async function getPosts(limit?: number): Promise<Post[]> {
-  let list: Post[] = PLACEHOLDER_POSTS
+  let live: Post[] | null = null
 
   if (await hasLiveData()) {
     try {
       let q = admin().from('posts').select('*').eq('published', true).order('published_at', { ascending: false })
       if (limit) q = q.limit(limit)
       const { data, error } = await q
-      if (!error && data?.length) {
-        list = data.map((p) => ({
+      if (!error && data) {
+        live = data.map((p) => ({
           id: p.id,
           slug: p.slug,
           title: p.title,
           excerpt: p.excerpt ?? '',
-          date: new Date(p.published_at).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' }),
+          date: new Date(p.published_at).toLocaleDateString('en-GB', {
+            month: 'short',
+            year: 'numeric',
+          }),
           readMinutes: p.read_minutes ?? 1,
           body: p.body ?? '',
           cover: p.cover_url ?? undefined,
@@ -298,11 +387,9 @@ export async function getPosts(limit?: number): Promise<Post[]> {
     } catch {
       /* fall through */
     }
-  } else {
-    const rows = (await readContent()).posts
-    if (rows?.length) list = rows
   }
 
+  const list = pick(live, (await readContent()).posts, PLACEHOLDER_POSTS)
   return limit ? list.slice(0, limit) : list
 }
 
@@ -314,12 +401,14 @@ export async function getPost(slug: string): Promise<Post | null> {
 /* ---- resources ------------------------------------------------------------ */
 
 export async function getResourceGroups(): Promise<ResourceGroup[]> {
+  let live: ResourceGroup[] | null = null
+
   if (await hasLiveData()) {
     try {
       const { data: groups, error } = await admin().from('resource_groups').select('*').order('sort_order')
-      if (!error && groups?.length) {
+      if (!error && groups) {
         const { data: links } = await admin().from('resources').select('*').order('sort_order')
-        return groups.map((g) => ({
+        live = groups.map((g) => ({
           id: g.id,
           title: g.title,
           links: (links ?? [])
@@ -330,11 +419,9 @@ export async function getResourceGroups(): Promise<ResourceGroup[]> {
     } catch {
       /* fall through */
     }
-  } else {
-    const groups = (await readContent()).resources
-    if (groups?.length) return groups
   }
-  return PLACEHOLDER_RESOURCE_GROUPS
+
+  return pick(live, (await readContent()).resources, PLACEHOLDER_RESOURCE_GROUPS)
 }
 
 export async function getPlaceholderProjects(): Promise<ProjectDetail[]> {

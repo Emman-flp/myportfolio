@@ -44,6 +44,14 @@ export async function getMessages(): Promise<AdminMessage[]> {
   return (messages ?? []) as AdminMessage[]
 }
 
+/**
+ * Rows for the generic editor.
+ *
+ * Uses the same three-tier chain as the public site: Supabase, then the local
+ * JSON store, then nothing. The admin deliberately shows what the *site* is
+ * serving, so a half-migrated database does not look like lost content. The
+ * Overview flags the mismatch and offers a one-click seed.
+ */
 export async function getRows<T = Record<string, unknown>>(
   table: string,
   opts: { order?: string; asc?: boolean; limit?: number } = {},
@@ -56,7 +64,9 @@ export async function getRows<T = Record<string, unknown>>(
   if (opts.limit) q = q.limit(opts.limit)
   const { data, error } = await q
   if (error) throw new Error(error.message)
-  return (data ?? []) as T[]
+
+  const rows = (data ?? []) as T[]
+  return rows.length ? rows : getLocalRows<T>(table)
 }
 
 const STORE_COLLECTION: Record<string, string> = {
@@ -94,18 +104,18 @@ export async function getOne<T = Record<string, unknown>>(table: string, id: str
 
 export async function getFirst<T = Record<string, unknown>>(table: string): Promise<T | null> {
   if (table === 'profile') {
+    // Supabase first, then the local store, so the form always opens populated.
+    if (await hasLiveData()) {
+      requireConfig()
+      const { data } = await admin().from('profile').select('*').limit(1).maybeSingle()
+      if (data) return data as T
+    }
     const { profile } = await readContent()
     return profile as T
   }
-  if (!(await hasLiveData())) {
-    const rows = await getLocalRows<T>(table)
-    return rows[0] ?? null
-  }
 
-  requireConfig()
-  const { data, error } = await admin().from(table).select('*').limit(1).maybeSingle()
-  if (error) throw new Error(error.message)
-  return (data ?? null) as T | null
+  const rows = await getRows<T>(table, { limit: 1 })
+  return rows[0] ?? null
 }
 
 export { writeContent }

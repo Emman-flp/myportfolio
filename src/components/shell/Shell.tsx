@@ -8,6 +8,10 @@ import { MobileHeader } from './MobileHeader'
 import { MobileNav } from './MobileNav'
 import { SiteFooter } from './SiteFooter'
 import { OverlayHost } from '@/components/overlays/OverlayHost'
+import { GuideTour } from '@/components/overlays/GuideTour'
+import { GUIDE_NAME } from '@/lib/guide'
+
+/** The reference tags its guide with the owner's first name. */
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -28,6 +32,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
       <MobileHeader onOpen={() => setDrawerOpen(true)} />
       <MobileNav open={drawerOpen} onClose={() => setDrawerOpen(false)} />
       <OverlayHost />
+      <GuideTour name={GUIDE_NAME} />
 
       {children}
 

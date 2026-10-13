@@ -65,6 +65,11 @@ npm.cmd run build        # production build
 npm.cmd run typecheck    # tsc --noEmit
 ```
 
+> ⚠️ **Never run `npm run build` while `npm run dev` is running.** They share the
+> `.next` directory; the build overwrites the dev server's chunks and you get
+> `Cannot find module './NNN.js'` and a missing `routes-manifest.json`. Stop the
+> dev server (Ctrl+C) first, or build in a separate clone.
+
 ---
 
 ## Fidelity status
@@ -136,17 +141,77 @@ We reproduce it for fidelity, as instructed.
 
 ---
 
+## Content: where it comes from
+
+Reads fall through three tiers, **per collection**, so the site always has
+something to lay out and nothing disappears silently:
+
+```
+1. Supabase      — when the keys are valid and the schema has been run
+2. content/content.json — written by the admin dashboard
+3. src/lib/fixtures.ts  — the built-in placeholders
+```
+
+The tiers are consulted *per collection* rather than per backend on purpose:
+right after `0001_init.sql` runs, Supabase answers but every table is empty. A
+backend-level check would blank the site at exactly that moment. Instead reads
+fall through to the local store, and the admin **Overview** shows the mismatch
+and offers a one-click seed.
+
+**The `/admin` Overview is the place to look** to see which tier is serving.
+
+### Admin access
+
+`/admin/login` accepts two gates:
+
+| Gate | When | Notes |
+|---|---|---|
+| Supabase Auth | email supplied | Account must also be a row in `admins` |
+| `ADMIN_PASSWORD` | email left blank | Always available, including when the DB is live |
+
+The local password is deliberately kept working after the database comes online.
+It is the recovery path: a lost Supabase account, a missing `admins` row, or an
+Auth misconfiguration would otherwise lock you out of your own site.
+
+`ADMIN_SESSION_SECRET` signs the session cookie. It is generated for you and you
+never need to see it — only `ADMIN_PASSWORD` is something you type.
+
+### Seeding Supabase
+
+When the schema exists but the tables are empty, **Overview → Seed Supabase from
+local content** copies `content/content.json` across. Each table is only written
+if it is empty, so running it twice is harmless.
+
+It re-mints ids, derives the `projects.slug` the schema requires, and inserts
+children *after* their parents so the foreign keys resolve. The payloads are
+verified against the live schema by:
+
+```powershell
+node scripts/verify-seed.mjs
+```
+
+which inserts everything, reports any table that rejects it, then rolls the whole
+thing back. Run it after changing the schema or the local content.
+
+### Rendering
+
+Public pages are `force-dynamic` rather than statically generated. The reference
+is a static site with no admin; we have a CMS behind these pages, and a
+build-time snapshot would be wrong twice over — Vercel does not read
+`.env.local` at build, so a static build bakes the placeholder fixtures into the
+deployed HTML, and any admin edit would need a redeploy to appear.
+
+---
+
 ## What is real vs placeholder
 
-Everything currently renders from `src/lib/fixtures.ts`. Every placeholder is
-bracketed **and** carries `data-placeholder`, so auditing is one command:
+Everything currently renders from `src/lib/fixtures.ts` unless you edit it in
+`/admin`. Every placeholder is bracketed **and** carries `data-placeholder`, so
+auditing is one command:
 
 ```powershell
 Select-String -Path src\**\*.tsx -Pattern 'data-placeholder'
 ```
-
-To make a section live, edit its entry in `src/lib/fixtures.ts`. Supabase wiring
-replaces this file in Phase 7 — the components already take props.
 
 Unset values: `[EMAIL]`, `[GITHUB_URL]`, `[LINKEDIN_URL]`, `[GITHUB_USERNAME]`.
 
@@ -168,8 +233,28 @@ change the pixels.
 
 ## Next steps
 
-1. Replace the placeholders in `src/lib/fixtures.ts`
-2. Build the Wave A inner pages (`/projects`, `/experience`, `/stack`, `/blog`, `/contact`)
-3. Wave B overlays: Ask, Typing test, guide tour, modals
-4. Supabase schema + RLS + admin dashboard
-5. Deploy to Vercel
+1. Replace the placeholders in `src/lib/fixtures.ts`, or edit them in `/admin`
+2. Grant yourself admin in Supabase (below), then seed it
+3. Confirm `Alt+K` (Ask) and `Alt+J` (typing test) by hand — the automation
+   browser cannot deliver key events
+4. Deploy to Vercel
+
+### Granting yourself admin
+
+Supabase → Authentication → Users → **Add user**. Then in the SQL Editor:
+
+```sql
+insert into admins (user_id, email) values ('<user-id>', 'you@example.com');
+```
+
+`isAdmin()` accepts a Supabase session belonging to a row in `admins`, or the
+local `ADMIN_PASSWORD` session. RLS enforces the same rule on every query, and
+`requireAdmin()` guards every server action — that is the actual security
+boundary, since middleware can be bypassed.
+
+### Before deploying
+
+- Set a real `ADMIN_PASSWORD`
+- **Rotate `SUPABASE_SERVICE_ROLE_KEY`.** It was pasted into a chat log during
+  setup. Supabase → Settings → API Keys → Reset.
+- Add the env vars to Vercel; `.env.local` is gitignored and will not deploy.

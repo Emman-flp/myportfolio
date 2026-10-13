@@ -100,16 +100,24 @@ function loose(): LooseClient {
 
 /* ---- auth ---------------------------------------------------------------- */
 
+/**
+ * Sign in, by whichever gate applies.
+ *
+ * Supabase Auth is tried first when an email is supplied. The local
+ * `ADMIN_PASSWORD` gate is always available as a fallback: it is the documented
+ * recovery path if the Supabase account is lost, the `admins` row is missing, or
+ * Auth is misconfigured. Losing that fallback the moment the database came
+ * online would lock the owner out of their own site.
+ */
 export async function signIn(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const email = String(formData.get('email') ?? '').trim()
   const password = String(formData.get('password') ?? '')
 
   if (!password) return { ok: false, error: 'Password is required.' }
 
-  // Use Supabase Auth only when the database is actually reachable AND running
-  // the schema. `isConfigured()` alone is not enough — a valid URL with an
-  // empty database would send the user to a dead end instead of the local gate.
-  if (isConfigured() && (await hasLiveData())) {
+  let dbError: string | null = null
+
+  if (email && isConfigured() && (await hasLiveData())) {
     try {
       const supabase = await createServerSupabase()
       const { error } = await supabase.auth.signInWithPassword({ email, password })
@@ -117,21 +125,22 @@ export async function signIn(_prev: ActionState, formData: FormData): Promise<Ac
       if (!error && (await isAdmin())) redirect('/admin')
 
       await supabase.auth.signOut()
-      return {
-        ok: false,
-        error: 'Those credentials did not work, or that account is not an admin.',
-      }
+      dbError =
+        'Those credentials did not work, or that account is not in the admins table.'
     } catch {
-      // Database unreachable — fall through to the local password gate.
+      dbError = 'Could not reach the database.'
     }
   }
 
   if (await localSignIn(password)) redirect('/admin')
 
-  return {
-    ok: false,
-    error: process.env.ADMIN_PASSWORD ? 'Wrong password.' : 'Set ADMIN_PASSWORD in .env.local first.',
+  // Prefer whichever message is actionable: "no local password configured" beats
+  // "wrong credentials" when the local gate is switched off entirely.
+  if (!process.env.ADMIN_PASSWORD) {
+    return { ok: false, error: dbError ?? 'Set ADMIN_PASSWORD in .env.local to allow local sign-in.' }
   }
+
+  return { ok: false, error: dbError ?? 'Wrong password.' }
 }
 
 export async function signOut() {
@@ -385,4 +394,303 @@ export async function deleteMessage(formData: FormData): Promise<void> {
   if (!id) return
   await admin().from('contact_messages').delete().eq('id', id)
   revalidatePath('/admin/messages')
+}
+/* ---- seed: copy local content into an empty Supabase ---------------------- */
+
+/**
+ * Pushes `content/content.json` into Supabase, never overwriting existing rows.
+ *
+ * This handles one specific situation: the schema has been run but the tables
+ * are still empty, so the site is serving from the local store while every new
+ * edit would land in the database alone. Seeding makes the two agree instead of
+ * quietly splitting content across two places.
+ *
+ * Three things this has to get right, all of them found by running the payloads
+ * against the live schema rather than by reading it:
+ *
+ *   1. `projects.slug` is NOT NULL, and the local store has no slug � one is
+ *      derived from the title.
+ *   2. `experience_roles.org_id`, `skills.group_id` and `resources.group_id` are
+ *      foreign keys, so children must be inserted *after* their parents and must
+ *      reference the ids Postgres actually assigned. Pre-minting UUIDs fails.
+ *   3. `skills` is one table feeding two views (the grouped list on /stack and
+ *      the flat chip row on the homepage), so the grouped names and the flat
+ *      list are merged rather than seeded twice.
+ *
+ * Each table is only written when empty, which makes the whole operation
+ * safe to run twice.
+ */
+
+type SeedReport = { table: string; inserted: number; skipped: number; error?: string }
+
+const slugify = (s: string) =>
+  s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60) || 'item'
+
+export async function seedSupabase(): Promise<{
+  ok: boolean
+  message?: string
+  error?: string
+  report?: SeedReport[]
+}> {
+  try {
+    await requireAdmin()
+  } catch (e) {
+    return { ok: false, error: (e as Error).message }
+  }
+
+  if (!(await hasLiveData())) {
+    return { ok: false, error: 'Supabase is not reachable, so there is nothing to seed into.' }
+  }
+
+  const content = await readContent()
+  const db = admin()
+  const report: SeedReport[] = []
+
+  /**
+   * Insert `rows` only when the table is empty.
+   *
+   * Returns the inserted rows (with their real ids) so callers can wire up
+   * foreign keys, or `null` when the table already had rows or the insert
+   * failed. The report records why either way.
+   */
+  const insert = async (
+    table: string,
+    rows: Record<string, unknown>[],
+  ): Promise<Record<string, unknown>[] | null> => {
+    if (!rows.length) {
+      report.push({ table, inserted: 0, skipped: 0 })
+      return []
+    }
+
+    const { count, error: countErr } = await db
+      .from(table)
+      .select('*', { count: 'exact', head: true })
+
+    if (countErr) {
+      report.push({ table, inserted: 0, skipped: 0, error: countErr.message })
+      return null
+    }
+    if ((count ?? 0) > 0) {
+      report.push({ table, inserted: 0, skipped: rows.length })
+      return null
+    }
+
+    const { data, error } = await db.from(table).insert(rows as never).select('id')
+    if (error) {
+      report.push({ table, inserted: 0, skipped: rows.length, error: error.message })
+      return null
+    }
+
+    report.push({ table, inserted: data.length, skipped: 0 })
+    return data
+  }
+
+  /* ---- profile ---- */
+  await insert('profile', [
+    {
+      name: content.profile.name,
+      tagline: content.profile.tagline,
+      description: content.profile.description,
+      paragraphs: content.profile.paragraphs,
+      socials: content.profile.socials,
+      email: content.profile.email,
+      github_username: content.profile.githubUsername,
+    },
+  ])
+
+  /* ---- projects (slug is NOT NULL) ---- */
+  const usedSlugs = new Set<string>()
+  await insert(
+    'projects',
+    content.projects.map((p, i) => {
+      let slug = slugify(p.title)
+      while (usedSlugs.has(slug)) slug = `${slug}-${i}`
+      usedSlugs.add(slug)
+      return {
+        slug,
+        title: p.title,
+        summary: p.summary ?? '',
+        badges: p.badges ?? [],
+        links: p.links ?? [],
+        tags: p.tags ?? [],
+        featured_in: p.featuredIn ?? [],
+        video_url: p.videoUrl ?? null,
+        icon_url: p.icon ?? null,
+        published: true,
+        sort_order: i,
+      }
+    }),
+  )
+
+  await insert(
+    'project_stack',
+    content.projectStack.map((r, i) => ({
+      name: r.name,
+      href: r.href,
+      category: r.category,
+      description: r.description,
+      published: true,
+      sort_order: i,
+    })),
+  )
+
+  /* ---- experience: orgs first, then roles keyed to the real org ids ---- */
+  const insertedOrgs = await insert(
+    'experience_orgs',
+    content.experienceOrgs.map((o, i) => ({
+      monogram: o.monogram,
+      name: o.name,
+      employment: o.employment,
+      meta: o.meta,
+      location: o.location,
+      published: true,
+      sort_order: i,
+    })),
+  )
+
+  if (insertedOrgs) {
+    // PostgREST returns rows in insertion order, so index i lines up.
+    await insert(
+      'experience_roles',
+      content.experienceOrgs.flatMap((o, oi) =>
+        o.roles.map((r, i) => ({
+          org_id: insertedOrgs[oi]?.id ?? null,
+          period: r.period,
+          title: r.title,
+          summary: r.summary ?? '',
+          bullets: r.bullets ?? [],
+          sort_order: i,
+        })),
+      ),
+    )
+  } else {
+    report.push({ table: 'experience_roles', inserted: 0, skipped: 0 })
+  }
+
+  /* ---- skills: one table, two views ---- */
+  const insertedGroups = await insert(
+    'skill_groups',
+    content.skillGroups.map((g, i) => ({ title: g.title, sort_order: i })),
+  )
+
+  if (insertedGroups) {
+    const grouped = content.skillGroups.flatMap((g, gi) =>
+      g.items.map((name, i) => ({
+        group_id: insertedGroups[gi]?.id ?? null,
+        name,
+        published: true,
+        sort_order: i,
+      })),
+    )
+    // Anything only present in the flat chip list becomes an ungrouped row, so
+    // the homepage chips and /stack agree.
+    const inGroups = new Set(content.skillGroups.flatMap((g) => g.items))
+    const extra = content.skills.filter((n) => !inGroups.has(n))
+
+    await insert('skills', [
+      ...grouped,
+      ...extra.map((name, i) => ({
+        group_id: null,
+        name,
+        published: true,
+        sort_order: grouped.length + i,
+      })),
+    ])
+  } else {
+    report.push({ table: 'skills', inserted: 0, skipped: 0 })
+  }
+
+  /* ---- certifications / affiliations ---- */
+  await insert(
+    'certifications',
+    content.certifications.map((c, i) => ({
+      name: c.name,
+      issuer: c.issuer,
+      logo_url: c.logo ?? null,
+      verify_url: c.verifyUrl ?? null,
+      group_title: 'Certifications',
+      published: true,
+      sort_order: i,
+    })),
+  )
+
+  await insert(
+    'affiliations',
+    content.affiliations.map((a, i) => ({
+      name: a.name,
+      role: a.role,
+      logo_url: a.logo ?? null,
+      emoji: a.emoji ?? null,
+      href: a.href,
+      summary: '',
+      published: true,
+      sort_order: i,
+    })),
+  )
+
+  /* ---- posts ---- */
+  await insert(
+    'posts',
+    content.posts.map((p, i) => ({
+      slug: p.slug,
+      title: p.title,
+      excerpt: p.excerpt ?? '',
+      body: p.body ?? '',
+      read_minutes: p.readMinutes ?? 1,
+      tags: p.tags ?? [],
+      cover_url: p.cover ?? null,
+      // Placeholders carry no real publication date; anchor them so the
+      // newest-first ordering is stable instead of all landing on "now".
+      published_at: new Date(Date.UTC(2026, 0, 1 + i)).toISOString(),
+      published: true,
+    })),
+  )
+
+  /* ---- resource groups, then links keyed to the real group ids ---- */
+  const insertedResGroups = await insert(
+    'resource_groups',
+    content.resources.map((g, i) => ({ title: g.title, sort_order: i })),
+  )
+
+  if (insertedResGroups) {
+    await insert(
+      'resources',
+      content.resources.flatMap((g, gi) =>
+        g.links.map((l, i) => ({
+          group_id: insertedResGroups[gi]?.id ?? null,
+          title: l.title,
+          href: l.href,
+          description: l.description ?? '',
+          sort_order: i,
+        })),
+      ),
+    )
+  } else {
+    report.push({ table: 'resources', inserted: 0, skipped: 0 })
+  }
+
+  const inserted = report.reduce((n, r) => n + r.inserted, 0)
+  const skipped = report.reduce((n, r) => n + r.skipped, 0)
+  const failed = report.filter((r) => r.error)
+
+  revalidatePath('/admin')
+  revalidatePath('/', 'layout')
+
+  if (failed.length && !inserted) {
+    return { ok: false, error: failed.map((f) => `${f.table}: ${f.error}`).join('; '), report }
+  }
+
+  return {
+    ok: true,
+    message:
+      inserted === 0
+        ? `Nothing to do � ${skipped} row${skipped === 1 ? '' : 's'} skipped because the table already had rows.`
+        : `Seeded ${inserted} row${inserted === 1 ? '' : 's'}${skipped ? `, skipped ${skipped} already present` : ''}.` +
+            (failed.length ? ` ${failed.length} table${failed.length === 1 ? '' : 's'} failed � see the breakdown.` : ''),
+    report,
+  }
 }

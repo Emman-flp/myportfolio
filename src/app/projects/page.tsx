@@ -2,6 +2,18 @@ import { PageShell } from '@/components/pages/PageShell'
 import { PageHeader } from '@/components/pages/PageHeader'
 import { getProjects, getProjectStack } from '@/lib/data'
 import type { ProjectDetail, ProjectStackRow } from '@/lib/types'
+/**
+ * Rendered per request rather than baked at build time.
+ *
+ * Deviation from the reference, which is a static site with no admin. We have a
+ * CMS behind these pages, so a build-time snapshot would be wrong twice over:
+ * Vercel does not read `.env.local` at build, so a static build would bake the
+ * placeholder fixtures into the deployed HTML and serve them forever, and any
+ * edit made in /admin would need a redeploy to appear.
+ *
+ * Marking these dynamic means an admin write is live on the next request.
+ */
+export const dynamic = 'force-dynamic'
 
 export const metadata = {
   title: 'Projects',

@@ -3,6 +3,18 @@ import { notFound } from 'next/navigation'
 import { PageShell } from '@/components/pages/PageShell'
 import { Markdown } from '@/components/pages/Markdown'
 import { getPost, getPosts } from '@/lib/data'
+/**
+ * Rendered per request rather than baked at build time.
+ *
+ * Deviation from the reference, which is a static site with no admin. We have a
+ * CMS behind these pages, so a build-time snapshot would be wrong twice over:
+ * Vercel does not read `.env.local` at build, so a static build would bake the
+ * placeholder fixtures into the deployed HTML and serve them forever, and any
+ * edit made in /admin would need a redeploy to appear.
+ *
+ * Marking these dynamic means an admin write is live on the next request.
+ */
+export const dynamic = 'force-dynamic'
 
 type Params = { params: Promise<{ slug: string }> }
 

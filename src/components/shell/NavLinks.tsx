@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Icon } from '@/components/primitives/Icon'
+import { GUIDE_HOOK } from '@/lib/guide'
 import type { NavGroup } from '@/lib/nav'
 
 /**
@@ -35,7 +36,7 @@ export function NavLinks({
             href={link.href}
             aria-current={active ? 'page' : undefined}
             className={`${base}${active ? ' pl-6' : ''}`}
-            data-guide={link.href === '/blog' ? 'nav-blog' : undefined}
+            data-guide={GUIDE_HOOK[link.href]}
           >
             {link.icon && <Icon name={link.icon} className="h-[1.15em] w-[1.15em] shrink-0" />}
             {link.label}
