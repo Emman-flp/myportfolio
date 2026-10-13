@@ -260,12 +260,11 @@ boundary, since middleware can be bypassed.
 
 ### Rotating the service-role key
 
-The key was pasted into a chat log during setup. **There is no `Reset` button**
-— Supabase replaced the old UI. The current keys are the legacy JWT format
-(`eyJ…`, expiring 2036) and keep working; rotation is optional but cheap.
+Supabase has replaced the old key UI, so there is no `Reset` button. The current
+keys are the legacy JWT format (`eyJ…`) and keep working; rotation is optional
+but good hygiene if a key is ever exposed.
 
-1. Open
-   `https://supabase.com/dashboard/project/<ref>/settings/api-keys`
+1. Open `https://supabase.com/dashboard/project/<ref>/settings/api-keys`
    — note `api-keys`, not `api`. There is no longer a separate Settings → API page.
 2. Switch to the **Publishable and secret API keys** tab. If your project is
    still on legacy keys only, the legacy tab is fine — create a **secret key**
@@ -275,18 +274,16 @@ The key was pasted into a chat log during setup. **There is no `Reset` button**
 5. Confirm the site and `/admin` still work.
 6. **Only then** delete the old key. Deleting a secret key is irreversible.
 
-Do not paste the new key into chat, and never into a screenshot.
+Keep keys out of chat logs, screenshots and the dashboard's public fields.
 
-**The code is already compatible with both key formats.** `supabase-js` handles
-the new `sb_publishable_…` / `sb_secret_…` keys without configuration — its
-Functions client already omits the key from the `Authorization` header, which is
-where `Invalid JWT` would otherwise bite, and the data API accepts it there for
+**The code already supports both key formats.** `supabase-js` handles the newer
+`sb_publishable_…` / `sb_secret_…` keys without configuration — its Functions
+client already omits the key from the `Authorization` header, which is where
+`Invalid JWT` would otherwise bite, and the data API accepts it there for
 migration compatibility. Verify with:
 
 ```powershell
 node scripts/verify-key-formats.mjs
 ```
 
-which asserts the headers on both fetch paths for both formats. The explanation
-for why no client option is needed lives above `admin()` in
-`src/lib/supabase/admin.ts`.
+The reasoning lives above `admin()` in `src/lib/supabase/admin.ts`.

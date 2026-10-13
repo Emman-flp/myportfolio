@@ -1,0 +1,20 @@
+# Normalise line endings so the working tree matches what is committed.
+#
+# Without this, Git for Windows rewrites LF to CRLF on checkout (core.autocrlf
+# is true on this machine) and every file shows as modified after a clone.
+# Deployments run on Linux, so LF is what should be stored either way.
+* text=auto eol=lf
+
+# Binary assets must never be touched.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+
+# Lockfiles and generated output.
+package-lock.json -diff
+.next   -diff
