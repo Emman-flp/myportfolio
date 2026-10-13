@@ -142,6 +142,8 @@ export function GuideTour({ name }: { name: string }) {
       if (nowAway !== away) {
         away = nowAway
         cursorEl.classList.toggle('is-away', away)
+        // Hand the portrait's gaze back to the visitor when the guide leaves.
+        if (away) window.profileGaze?.release()
       }
 
       if (!away) {
@@ -196,6 +198,10 @@ export function GuideTour({ name }: { name: string }) {
             Math.cos(clock / 141 + 5) * 0.2) *
             tremor
         cursorEl.style.transform = `translate3d(${x.toFixed(2)}px,${y.toFixed(2)}px,0)`
+
+        // While the guide is on screen the portrait watches it instead of the
+        // visitor. See the cross-feature contract on GazePortrait.
+        window.profileGaze?.look(x, y)
 
         for (let i = waiters.length - 1; i >= 0; i--) {
           if (waiters[i].at <= clock) waiters.splice(i, 1)[0].done()
@@ -438,6 +444,7 @@ export function GuideTour({ name }: { name: string }) {
       cursorEl.classList.remove('is-here')
       await sleep(500)
       running = false
+      window.profileGaze?.release()
       showPrompt()
     }
 
