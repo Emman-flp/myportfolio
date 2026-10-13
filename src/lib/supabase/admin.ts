@@ -28,7 +28,10 @@ export function admin(): SupabaseClient<Database> {
   return client
 }
 
-/** True when the Supabase env vars are present. Says nothing about validity. */
+/** True when the Supabase env vars are present and the URL is well formed. */
 export function isConfigured(): boolean {
-  return Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  return Boolean(
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY && typeof url === 'string' && /^https?:\/\//.test(url),
+  )
 }

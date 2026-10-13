@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { usePathname } from 'next/navigation'
 import { HalftoneBackdrop } from '@/components/primitives/HalftoneBackdrop'
 import { SidebarNav } from './SidebarNav'
 import { MobileHeader } from './MobileHeader'
@@ -9,7 +10,11 @@ import { SiteFooter } from './SiteFooter'
 import { OverlayHost } from '@/components/overlays/OverlayHost'
 
 export function Shell({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname()
   const [drawerOpen, setDrawerOpen] = useState(false)
+
+  // /admin has its own layout and must not inherit the portfolio chrome.
+  if (pathname.startsWith('/admin')) return <>{children}</>
 
   return (
     <>

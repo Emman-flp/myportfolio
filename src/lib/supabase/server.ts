@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import type { Database } from './database.types'
+import { hasLocalSession, localAuthEnabled } from '../localAuth'
 
 /**
  * Request-scoped client carrying the user's session cookie.
@@ -32,7 +33,13 @@ export async function createServerSupabase() {
   )
 }
 
-/** True when the current session belongs to a row in `public.admins`. */
+/**
+ * True when the current request is allowed to reach /admin.
+ *
+ * Two independent gates, either of which is sufficient:
+ *   - a Supabase session belonging to a row in `admins`
+ *   - the local password session, used when no database is connected
+ */
 export async function isAdmin(): Promise<boolean> {
   try {
     const supabase = await createServerSupabase()
@@ -40,16 +47,20 @@ export async function isAdmin(): Promise<boolean> {
       data: { user },
     } = await supabase.auth.getUser()
 
-    if (!user) return false
+    if (user) {
+      const { data } = await supabase
+        .from('admins')
+        .select('user_id')
+        .eq('user_id', user.id)
+        .maybeSingle()
 
-    const { data } = await supabase
-      .from('admins')
-      .select('user_id')
-      .eq('user_id', user.id)
-      .maybeSingle()
-
-    return Boolean(data)
+      if (data) return true
+    }
   } catch {
-    return false
+    // No database — fall through to the local gate.
   }
+
+  if (localAuthEnabled() && (await hasLocalSession())) return true
+
+  return false
 }

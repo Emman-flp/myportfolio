@@ -1,0 +1,378 @@
+{
+  "profile": {
+    "name": "Emmanuel Joshua Felipe",
+    "tagline": "Data Analyst & Data Engineer",
+    "description": "",
+    "email": "",
+    "githubUsername": "",
+    "paragraphs": [],
+    "socials": []
+  },
+  "projects": [
+    {
+      "id": "pr1",
+      "title": "[Project name — placeholder]",
+      "summary": "[One sentence: what the project does and what it proved.]",
+      "badges": [
+        "[Primary badge]",
+        "Secondary badge",
+        "Third badge"
+      ],
+      "links": [],
+      "featuredIn": [
+        {
+          "label": "[Publication name]",
+          "href": "#"
+        },
+        {
+          "label": "[Publication name]",
+          "href": "#"
+        }
+      ]
+    },
+    {
+      "id": "pr2",
+      "title": "[Project name — placeholder]",
+      "summary": "[One sentence: what the project does and what it proved.]",
+      "badges": [
+        "[Primary badge]"
+      ],
+      "links": [],
+      "featuredIn": []
+    },
+    {
+      "id": "pr3",
+      "title": "[Project name — placeholder]",
+      "summary": "[One sentence: what the project does and what it proved.]",
+      "badges": [
+        "[Primary badge]"
+      ],
+      "links": [],
+      "featuredIn": []
+    }
+  ],
+  "projectStack": [
+    {
+      "id": "ps1",
+      "name": "[Project]",
+      "href": "#",
+      "category": "[Category]",
+      "description": "[One sentence.]"
+    },
+    {
+      "id": "ps2",
+      "name": "[Project]",
+      "href": "#",
+      "category": "[Category]",
+      "description": "[One sentence.]"
+    },
+    {
+      "id": "ps3",
+      "name": "[Project]",
+      "href": "#",
+      "category": "[Category]",
+      "description": "[One sentence.]"
+    },
+    {
+      "id": "ps4",
+      "name": "[Project]",
+      "href": "#",
+      "category": "[Category]",
+      "description": "[One sentence.]"
+    },
+    {
+      "id": "ps5",
+      "name": "[Project]",
+      "href": "#",
+      "category": "[Category]",
+      "description": "[One sentence.]"
+    },
+    {
+      "id": "ps6",
+      "name": "[Project]",
+      "href": "#",
+      "category": "[Category]",
+      "description": "[One sentence.]"
+    }
+  ],
+  "experienceOrgs": [
+    {
+      "id": "eo1",
+      "monogram": "[X]",
+      "name": "[Organisation — placeholder]",
+      "employment": "[Employment type]",
+      "meta": "[Duration]",
+      "location": "[Location · Work mode]",
+      "roles": [
+        {
+          "id": "er1",
+          "period": "[Period]",
+          "title": "[Role title]",
+          "summary": "[One sentence on what you did.]",
+          "bullets": [
+            "[Achievement — keep it measurable]",
+            "[Achievement]"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "eo2",
+      "monogram": "[Y]",
+      "name": "[Organisation — placeholder]",
+      "employment": "[Employment type]",
+      "meta": "[Duration]",
+      "location": "[Location · Work mode]",
+      "roles": [
+        {
+          "id": "er2",
+          "period": "[Period]",
+          "title": "[Role title]",
+          "summary": "[One sentence on what you did.]"
+        }
+      ]
+    },
+    {
+      "id": "eo3",
+      "monogram": "[Z]",
+      "name": "[Organisation — placeholder]",
+      "employment": "[Education]",
+      "meta": "[Duration]",
+      "location": "[Institution]",
+      "roles": [
+        {
+          "id": "er3",
+          "period": "[Period]",
+          "title": "[Course or programme]",
+          "summary": "[One sentence.]"
+        }
+      ]
+    }
+  ],
+  "experienceEntries": [
+    {
+      "id": "e1",
+      "period": "[Year]",
+      "role": "[Role — placeholder]",
+      "org": "[Organisation — placeholder]"
+    },
+    {
+      "id": "e2",
+      "period": "[Year]",
+      "role": "[Role — placeholder]",
+      "org": "[Organisation — placeholder]"
+    },
+    {
+      "id": "e3",
+      "period": "[Year]",
+      "role": "[Role — placeholder]",
+      "org": "[Organisation — placeholder]"
+    },
+    {
+      "id": "e4",
+      "period": "[Year]",
+      "role": "[Role — placeholder]",
+      "org": "[Organisation — placeholder]"
+    }
+  ],
+  "skills": [
+    "Python",
+    "SQL",
+    "PostgreSQL",
+    "dbt",
+    "pandas",
+    "Power BI",
+    "Tableau",
+    "Airflow",
+    "Docker",
+    "Git"
+  ],
+  "skillGroups": [
+    {
+      "id": "langs",
+      "title": "Languages & Query",
+      "items": [
+        "Python",
+        "SQL",
+        "JavaScript",
+        "TypeScript",
+        "Bash"
+      ]
+    },
+    {
+      "id": "data",
+      "title": "Data & Modelling",
+      "items": [
+        "PostgreSQL",
+        "MySQL",
+        "dbt",
+        "pandas",
+        "NumPy",
+        "scikit-learn"
+      ]
+    },
+    {
+      "id": "bi",
+      "title": "Analytics & BI",
+      "items": [
+        "Power BI",
+        "Tableau",
+        "Looker Studio",
+        "Excel",
+        "Google Sheets"
+      ]
+    },
+    {
+      "id": "pipeline",
+      "title": "Pipelines & Infrastructure",
+      "items": [
+        "Airflow",
+        "dbt Cloud",
+        "Docker",
+        "Git",
+        "GitHub Actions",
+        "Linux"
+      ]
+    },
+    {
+      "id": "cloud",
+      "title": "Cloud & Tools",
+      "items": [
+        "Google BigQuery",
+        "Supabase",
+        "Vercel",
+        "Figma",
+        "Notion"
+      ]
+    }
+  ],
+  "certifications": [
+    {
+      "id": "c1",
+      "name": "[Certification name]",
+      "issuer": "Issuer"
+    },
+    {
+      "id": "c2",
+      "name": "[Certification name]",
+      "issuer": "Issuer"
+    },
+    {
+      "id": "c3",
+      "name": "[Certification name]",
+      "issuer": "Issuer"
+    }
+  ],
+  "affiliations": [
+    {
+      "id": "a1",
+      "name": "[Organisation]",
+      "role": "Member",
+      "emoji": "🏛️",
+      "href": "#"
+    },
+    {
+      "id": "a2",
+      "name": "[Organisation]",
+      "role": "Member",
+      "emoji": "📊",
+      "href": "#"
+    },
+    {
+      "id": "a3",
+      "name": "[Organisation]",
+      "role": "Member",
+      "emoji": "🎓",
+      "href": "#"
+    }
+  ],
+  "posts": [
+    {
+      "id": "p1",
+      "slug": "post-one",
+      "title": "[Post title — placeholder]",
+      "excerpt": "[One-sentence excerpt shown under the title, truncated to one line.]",
+      "date": "Jan 2026",
+      "readMinutes": 4,
+      "body": "[Post body — placeholder]",
+      "placeholder": true
+    },
+    {
+      "id": "p2",
+      "slug": "post-two",
+      "title": "[Post title — placeholder]",
+      "excerpt": "[One-sentence excerpt shown under the title, truncated to one line.]",
+      "date": "Jan 2026",
+      "readMinutes": 4,
+      "body": "[Post body — placeholder]",
+      "placeholder": true
+    },
+    {
+      "id": "p3",
+      "slug": "post-three",
+      "title": "[Post title — placeholder]",
+      "excerpt": "[One-sentence excerpt shown under the title, truncated to one line.]",
+      "date": "Jan 2026",
+      "readMinutes": 4,
+      "body": "[Post body — placeholder]",
+      "placeholder": true
+    }
+  ],
+  "resources": [
+    {
+      "id": "sql",
+      "title": "SQL",
+      "links": [
+        {
+          "id": "r1",
+          "title": "[Resource]",
+          "href": "#",
+          "description": "[Why it is useful.]"
+        },
+        {
+          "id": "r2",
+          "title": "[Resource]",
+          "href": "#",
+          "description": "[Why it is useful.]"
+        },
+        {
+          "id": "r3",
+          "title": "[Resource]",
+          "href": "#",
+          "description": "[Why it is useful.]"
+        }
+      ]
+    },
+    {
+      "id": "python",
+      "title": "Python & Analytics",
+      "links": [
+        {
+          "id": "r4",
+          "title": "[Resource]",
+          "href": "#",
+          "description": "[Why it is useful.]"
+        },
+        {
+          "id": "r5",
+          "title": "[Resource]",
+          "href": "#",
+          "description": "[Why it is useful.]"
+        }
+      ]
+    },
+    {
+      "id": "bi",
+      "title": "Dashboards & BI",
+      "links": [
+        {
+          "id": "r6",
+          "title": "[Resource]",
+          "href": "#",
+          "description": "[Why it is useful.]"
+        }
+      ]
+    }
+  ],
+  "messages": []
+}
