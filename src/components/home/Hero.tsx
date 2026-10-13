@@ -10,7 +10,10 @@ export function Hero({ profile = PROFILE }: { profile?: Profile }) {
     <section className="relative pt-20 pb-16 sm:pt-28">
       <div className="grid gap-9 sm:grid-cols-[18rem_1fr] sm:items-start sm:gap-10">
         <div className="reveal d1 mx-auto w-full max-w-[18rem] sm:mx-0" data-guide="portrait">
-          <GazePortrait alt={name} />
+          {/* faceY measured off this crop with scripts/preview-portrait.mjs:
+              the eye line sits at 46% of the frame. The reference's own value
+              is 0.45, measured against its headshot. */}
+          <GazePortrait alt={name} src="/portrait.webp" faceY={0.46} />
         </div>
 
         <div>

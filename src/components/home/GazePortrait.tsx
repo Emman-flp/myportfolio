@@ -76,11 +76,21 @@ export function GazePortrait({
   gazeBase,
   alt,
   src = '/portrait.svg',
+  faceY = 0.45,
 }: {
   /** Directory holding `center.webp` + the eight directions. Enables src-swap. */
   gazeBase?: string
   alt: string
   src?: string
+  /**
+   * Where the face sits vertically, as a fraction of the portrait's height.
+   *
+   * 0.45 is the reference's value, measured for its own headshot. It only works
+   * if your crop puts the face in the same place — a portrait framed with the
+   * head high in the frame needs a smaller number, or the gaze will track
+   * against the chest and read as wrong.
+   */
+  faceY?: number
 }) {
   const boxRef = useRef<HTMLDivElement>(null)
   const imgRef = useRef<HTMLImageElement>(null)
@@ -141,9 +151,7 @@ export function GazePortrait({
       // move's input and the portrait would drift. The frame never moves.
       const rect = frameEl.getBoundingClientRect()
       const dx = position.x - (rect.left + rect.width / 2)
-      // 0.45 rather than 0.5: the reference treats the face as sitting slightly
-      // above the vertical centre of a square portrait.
-      const dy = position.y - (rect.top + rect.height * 0.45)
+      const dy = position.y - (rect.top + rect.height * faceY)
 
       // Dead zone, so small wobbles around the face do not flip directions.
       if (Math.hypot(dx, dy) < rect.width * 0.18) return show('center')
@@ -193,18 +201,23 @@ export function GazePortrait({
       },
     }
 
-    document.addEventListener('pointerdown', follow, { passive: true })
-    document.addEventListener(
-      'pointermove',
-      (e) => {
-        // Touch leaves a pointer behind on lift, so only track real pointing.
-        if (e.pointerType !== 'touch') follow(e)
-      },
-      { passive: true },
-    )
-    document.documentElement.addEventListener('pointerleave', (e) => {
+    // Every listener is a named reference, not an inline arrow. An inline
+    // arrow cannot be removed by identity, so it survives the effect cleanup
+    // and a re-run leaves several stale closures all writing `direction` from
+    // their own stale `position` — which shows up as the portrait flickering
+    // between unrelated sectors on every pointer move.
+    const onPointerMove = (e: PointerEvent) => {
+      // Touch leaves a pointer behind on lift, so only track real pointing.
+      if (e.pointerType !== 'touch') follow(e)
+    }
+
+    const onPointerLeave = (e: PointerEvent) => {
       if (e.pointerType !== 'touch') reset()
-    })
+    }
+
+    document.addEventListener('pointerdown', follow, { passive: true })
+    document.addEventListener('pointermove', onPointerMove, { passive: true })
+    document.documentElement.addEventListener('pointerleave', onPointerLeave)
     window.addEventListener('blur', reset)
     document.addEventListener('visibilitychange', reset)
     document.addEventListener('scroll', schedule, { passive: true })
@@ -215,14 +228,18 @@ export function GazePortrait({
 
     return () => {
       document.removeEventListener('pointerdown', follow)
+      document.removeEventListener('pointermove', onPointerMove)
+      document.documentElement.removeEventListener('pointerleave', onPointerLeave)
       document.removeEventListener('scroll', schedule)
+      document.removeEventListener('visibilitychange', reset)
       window.removeEventListener('blur', reset)
       window.removeEventListener('resize', schedule)
       motion.removeEventListener('change', configure)
       if (frame) cancelAnimationFrame(frame)
+      portraits.clear()
       delete window.profileGaze
     }
-  }, [gazeBase])
+  }, [gazeBase, faceY])
 
   return (
     <div ref={boxRef} className="relative overflow-hidden">
