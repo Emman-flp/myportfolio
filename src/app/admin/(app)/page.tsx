@@ -3,11 +3,24 @@ import { isConfigured } from '@/lib/supabase/admin'
 import { hasLiveData, getMessages } from '@/lib/data-admin'
 import { getSource, getSourceSummary } from '@/lib/data'
 import { isStorePersistable, STORE_PERSISTENCE_WARNING } from '@/lib/store'
+import { Banner, Card } from '@/components/admin/Controls'
+import { AdminIcon, type AdminIconName } from '@/components/admin/icons'
 import { SeedButton } from './SeedButton'
 
 export const metadata = { title: 'Admin — Overview' }
 
 export const dynamic = 'force-dynamic'
+
+const SECTIONS: { href: string; label: string; blurb: string; icon: AdminIconName }[] = [
+  { href: '/admin/profile', label: 'Profile', blurb: 'Name, tagline, email and the hero paragraphs', icon: 'profile' },
+  { href: '/admin/projects', label: 'Projects', blurb: 'Everything on the homepage and /projects', icon: 'projects' },
+  { href: '/admin/experience', label: 'Experience', blurb: 'Roles and the organisations they belong to', icon: 'experience' },
+  { href: '/admin/skills', label: 'Skills', blurb: 'Grouped on /stack, plus the flat chip row', icon: 'skills' },
+  { href: '/admin/certifications', label: 'Certifications', blurb: 'The card grid on the homepage', icon: 'certifications' },
+  { href: '/admin/affiliations', label: 'Affiliations', blurb: 'Communities and organisations', icon: 'affiliations' },
+  { href: '/admin/posts', label: 'Posts', blurb: 'Blog entries and their bodies', icon: 'posts' },
+  { href: '/admin/messages', label: 'Messages', blurb: 'Submissions from the contact form', icon: 'messages' },
+]
 
 export default async function AdminHome() {
   const configured = isConfigured()
@@ -33,9 +46,6 @@ export default async function AdminHome() {
   // success and then lose the edit on the next cold start.
   const storeWritable = !live ? await isStorePersistable() : true
 
-  // The schema exists but nothing has been copied into it yet. Reads fall back
-  // to content/content.json, so the site looks fine — but a new record created
-  // in the admin would land in Supabase alone and appear next to nothing.
   const needsSeed =
     live &&
     summary !== null &&
@@ -43,145 +53,198 @@ export default async function AdminHome() {
     Object.values(summary.local).some((n) => n > 0)
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-xl font-semibold">Overview</h1>
+    <div className="space-y-5">
+      <header>
+        <h1 className="text-xl font-semibold tracking-tight">Overview</h1>
+        <p className="mt-0.5 text-[13px] text-gray-500">
+          Edit any section from the left. Changes are live as soon as you save.
+        </p>
+      </header>
 
       {!configured && (
-        <Banner tone="amber">
-          Supabase is not configured. Copy <code>.env.local.example</code> to{' '}
-          <code>.env.local</code> and fill in the keys. The public site keeps working on
-          placeholder content until then.
+        <Banner tone="warn" title="Supabase is not configured">
+          Copy <code className="font-mono">.env.local.example</code> to{' '}
+          <code className="font-mono">.env.local</code> and fill in the keys. The site keeps
+          working on placeholder content until then.
         </Banner>
       )}
 
       {configured && !live && (
-        <Banner tone="red">
-          Keys are present but the database is not answering — either the keys are wrong or{' '}
-          <code>supabase/migrations/0001_init.sql</code> has not been run yet. Run it in the
-          Supabase SQL Editor.
+        <Banner tone="danger" title="The database is not answering">
+          Either the keys are wrong or{' '}
+          <code className="font-mono">supabase/migrations/0001_init.sql</code> has not been run
+          yet. Run it in the Supabase SQL Editor.
         </Banner>
       )}
 
       {live && source === 'supabase' && (
-        <Banner tone="emerald">Connected. Everything below reads and writes live data.</Banner>
+        <Banner tone="ok" title="Connected">
+          Everything below reads and writes live data.
+        </Banner>
       )}
 
       {live && source === 'local' && (
-        <Banner tone="amber">
-          Supabase is connected but its tables are empty, so the site is serving{' '}
-          <code>content/content.json</code>. Seed it below so both agree.
+        <Banner tone="warn" title="Supabase is empty">
+          The site is serving <code className="font-mono">content/content.json</code>. Seed it
+          below so both agree.
         </Banner>
       )}
 
       {!storeWritable && (
-        <Banner tone="red">
-          <strong>Saving will not work on this host.</strong> {STORE_PERSISTENCE_WARNING}
+        <Banner tone="danger" title="Saving will not work on this host">
+          {STORE_PERSISTENCE_WARNING}
         </Banner>
       )}
 
-      {needsSeed && summary && <SeedPanel summary={summary} />}
-
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Stat label="Messages" value={messages} href="/admin/messages" />
-        <Stat label="Unread" value={unread} href="/admin/messages" />
-        <Stat label="Site" value="view" href="/" />
+        <Stat label="Unread" value={unread} href="/admin/messages" accent={unread > 0} />
+        <Stat label="Site" value="view" href="/" external />
+        <Stat label="Backend" value={live ? 'live' : 'local'} />
       </div>
 
-      {!live && (
-        <div className="rounded-lg border border-neutral-200 bg-white p-4 text-sm text-neutral-600">
-          <p className="font-medium text-neutral-900">First-time setup</p>
-          <ol className="mt-2 list-decimal space-y-1 pl-5">
+      {needsSeed && summary && <SeedPanel summary={summary} />}
+
+      <Card title="Content" count={SECTIONS.length}>
+        <ul className="grid gap-1.5 sm:grid-cols-2">
+          {SECTIONS.map((s) => (
+            <li key={s.href}>
+              <Link
+                href={s.href}
+                className="group flex items-start gap-2.5 rounded-lg p-2.5 transition hover:bg-gray-50"
+              >
+                <AdminIcon
+                  name={s.icon}
+                  className="mt-0.5 h-4 w-4 text-gray-400 transition group-hover:text-ink"
+                />
+                <span className="min-w-0">
+                  <span className="flex items-center gap-1 text-[13px] font-medium text-ink">
+                    {s.label}
+                    <AdminIcon
+                      name="chevron"
+                      className="h-3 w-3 -translate-x-1 text-gray-300 opacity-0 transition group-hover:translate-x-0 group-hover:opacity-100"
+                    />
+                  </span>
+                  <span className="mt-0.5 block text-[12px] leading-snug text-gray-500">{s.blurb}</span>
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </Card>
+
+      {!live ? (
+        <Card title="First-time setup">
+          <ol className="list-decimal space-y-2 pl-5 text-[13px] leading-relaxed text-gray-600">
             <li>
-              Run <code className="text-xs">supabase/migrations/0001_init.sql</code> in Supabase → SQL
-              Editor.
+              Run <code className="font-mono text-[12px]">supabase/migrations/0001_init.sql</code>{' '}
+              in Supabase → SQL Editor.
             </li>
             <li>
-              Supabase → Authentication → Users → <strong>Add user</strong> (your admin login).
+              Supabase → Authentication → Users → <strong>Add user</strong>.
             </li>
             <li>
-              Insert that user into the <code className="text-xs">admins</code> table:
-              <code className="mt-1 block text-xs">
+              Grant it admin:
+              <code className="mt-1.5 block rounded-md bg-gray-50 p-2 font-mono text-[11px]">
                 insert into admins (user_id, email) values (&apos;&lt;user-id&gt;&apos;, &apos;you@example.com&apos;);
               </code>
             </li>
-            <li>Sign in above, then edit content on the left.</li>
+            <li>Sign in, then edit content from the left.</li>
           </ol>
-        </div>
-      )}
-
-      {live && (
-        <div className="rounded-lg border border-neutral-200 bg-white p-4 text-sm text-neutral-600">
-          <p className="font-medium text-neutral-900">Signing in with Supabase</p>
-          <p className="mt-1">
-            The password box is still accepted, but Supabase Auth is the intended route. Create a
-            user under Authentication → Users, then grant it admin:
+        </Card>
+      ) : (
+        <Card title="Signing in with Supabase">
+          <p className="text-[13px] leading-relaxed text-gray-600">
+            Supabase Auth is the intended route, though the <code className="font-mono text-[12px]">ADMIN_PASSWORD</code>{' '}
+            fallback still works — leave the email blank on the login screen. Create a user under
+            Authentication → Users, then grant it:
           </p>
-          <code className="mt-2 block text-xs">
+          <code className="mt-2 block rounded-md bg-gray-50 p-2 font-mono text-[11px]">
             insert into admins (user_id, email) values (&apos;&lt;user-id&gt;&apos;, &apos;you@example.com&apos;);
           </code>
-          <p className="mt-2 text-xs text-neutral-500">
-            Only accounts in this table may reach <code>/admin</code>. RLS enforces the same rule
-            on every query.
+          <p className="mt-2 text-[12px] text-gray-500">
+            Only accounts in this table can reach <code className="font-mono">/admin</code>. RLS
+            enforces the same rule on every query, and every server action re-checks.
           </p>
-        </div>
+        </Card>
       )}
     </div>
   )
 }
 
-function SeedPanel({ summary }: { summary: { supabase: Record<string, number>; local: Record<string, number> } }) {
+function SeedPanel({
+  summary,
+}: {
+  summary: { supabase: Record<string, number>; local: Record<string, number> }
+}) {
   const rows = Object.keys(summary.local)
     .map((k) => ({ key: k, local: summary.local[k] ?? 0, supabase: summary.supabase[k] ?? 0 }))
     .filter((r) => r.local > 0)
 
   return (
-    <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
-      <p className="font-semibold">Copy local content into Supabase</p>
-      <p className="mt-1 text-amber-900">
-        Nothing is uploaded twice — a table that already has rows is left alone. Run it once,
-        then Supabase becomes the source of truth.
-      </p>
-
-      <table className="mt-3 w-full max-w-sm text-left text-xs">
-        <thead>
-          <tr className="text-amber-800">
-            <th className="py-1 font-medium">Collection</th>
-            <th className="py-1 text-right font-medium">Local</th>
-            <th className="py-1 text-right font-medium">Supabase</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr key={r.key} className="border-t border-amber-200">
-              <td className="py-1 font-mono">{r.key}</td>
-              <td className="py-1 text-right tabular-nums">{r.local}</td>
-              <td className="py-1 text-right tabular-nums">{r.supabase}</td>
+    <Card title="Seed Supabase from local content" description="Tables that already have rows are left alone, so this is safe to run twice.">
+      <div className="mb-3 overflow-x-auto">
+        <table className="w-full max-w-sm text-[13px]">
+          <thead>
+            <tr className="border-b border-gray-200 text-left text-[10px] uppercase tracking-wider text-gray-500">
+              <th className="py-1.5 font-semibold">Collection</th>
+              <th className="py-1.5 text-right font-semibold">Local</th>
+              <th className="py-1.5 text-right font-semibold">Supabase</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-
-      <div className="mt-3">
-        <SeedButton />
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.key} className="border-b border-gray-100 last:border-0">
+                <td className="py-1.5 font-mono text-[12px]">{r.key}</td>
+                <td className="py-1.5 text-right tabular-nums">{r.local}</td>
+                <td className="py-1.5 text-right tabular-nums">{r.supabase}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
-    </div>
+      <SeedButton />
+    </Card>
   )
 }
 
-function Banner({ tone, children }: { tone: 'amber' | 'red' | 'emerald'; children: React.ReactNode }) {
-  const tones = {
-    amber: 'border-amber-300 bg-amber-50 text-amber-900',
-    red: 'border-red-300 bg-red-50 text-red-900',
-    emerald: 'border-emerald-300 bg-emerald-50 text-emerald-900',
-  }
-  return <div className={`rounded-lg border px-4 py-3 text-sm ${tones[tone]}`}>{children}</div>
-}
+/** A tile. Plain, static, and a link unless it is reporting a value only. */
+function Stat({
+  label,
+  value,
+  href,
+  accent,
+  external,
+}: {
+  label: string
+  value: string | number
+  href?: string
+  accent?: boolean
+  external?: boolean
+}) {
+  const body = (
+    <>
+      <div className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-gray-500">
+        {label}
+        {external && <AdminIcon name="external" className="h-3 w-3" />}
+      </div>
+      <div
+        className={`mt-1 text-2xl leading-none font-semibold tabular-nums ${accent ? 'text-red-600' : 'text-ink'}`}
+      >
+        {value}
+      </div>
+    </>
+  )
 
-function Stat({ label, value, href }: { label: string; value: string | number; href: string }) {
-  return (
-    <Link href={href} className="rounded-lg border border-neutral-200 bg-white p-4 hover:border-neutral-400">
-      <div className="text-xs uppercase tracking-wide text-neutral-500">{label}</div>
-      <div className="mt-1 text-2xl font-semibold tabular-nums">{value}</div>
+  const cls = `block rounded-xl border bg-white p-3.5 transition ${
+    accent ? 'border-red-200' : 'border-gray-200'
+  }`
+
+  return href ? (
+    <Link href={href} className={`${cls} hover:border-gray-400`}>
+      {body}
     </Link>
+  ) : (
+    <div className={cls}>{body}</div>
   )
 }
