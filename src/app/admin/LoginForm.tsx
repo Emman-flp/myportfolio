@@ -55,7 +55,7 @@ export function LoginForm({
             {live && (
               <label className="block">
                 <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-gray-500">
-                  Email <span className="font-normal normal-case tracking-normal text-gray-400">(optional)</span>
+                  Email
                 </span>
                 <input
                   name="email"
