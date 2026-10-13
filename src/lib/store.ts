@@ -58,6 +58,12 @@ export type Content = {
   messages: (ContactMessage & { id: string; is_read: boolean; created_at: string })[]
 }
 
+export type WriteResult = {
+  content: Content
+  /** False when the write could not reach disk (read-only filesystem). */
+  persisted: boolean
+}
+
 /** Seed used the first time the store is written. */
 export function seedContent(): Content {
   return {
@@ -94,8 +100,13 @@ export async function readContent(): Promise<Content> {
 /**
  * Merge a patch and persist. Writes are best-effort: on a read-only filesystem
  * the in-memory copy still updates, so the session stays coherent.
+ *
+ * ⚠️ Returns `{ persisted: false }` when the filesystem is read-only, which is
+ * the normal case on Vercel. Callers must surface that rather than reporting a
+ * successful save — an edit that silently vanishes on the next cold start is
+ * worse than an error.
  */
-export async function writeContent(patch: Partial<Content>): Promise<Content> {
+export async function writeContent(patch: Partial<Content>): Promise<WriteResult> {
   const current = await readContent()
   const next = { ...current, ...patch }
   cache = next
@@ -103,12 +114,43 @@ export async function writeContent(patch: Partial<Content>): Promise<Content> {
   try {
     await fs.mkdir(path.dirname(FILE), { recursive: true })
     await fs.writeFile(FILE, JSON.stringify(next, null, 2), 'utf8')
+    persistable = true
+    return { content: next, persisted: true }
   } catch {
-    // Read-only filesystem (e.g. Vercel). Keep the in-memory state and move on.
+    // Read-only filesystem (e.g. Vercel). Keep the in-memory state and be
+    // explicit that it did not survive.
+    persistable = false
+    return { content: next, persisted: false }
   }
-
-  return next
 }
+
+let persistable: boolean | null = null
+
+/**
+ * Whether edits to the local store actually reach disk on this host.
+ *
+ * `null` until probed. False on serverless platforms, where the only writable
+ * directory is `/tmp` and is not shared between invocations — which is exactly
+ * why Supabase, not this file, is the real backend in production.
+ */
+export async function isStorePersistable(): Promise<boolean> {
+  if (persistable !== null) return persistable
+
+  try {
+    await fs.mkdir(path.dirname(FILE), { recursive: true })
+    const probe = `${FILE}.probe`
+    await fs.writeFile(probe, 'ok', 'utf8')
+    await fs.unlink(probe)
+    persistable = true
+  } catch {
+    persistable = false
+  }
+  return persistable
+}
+
+/** Why the local store cannot be the production backend, in one sentence. */
+export const STORE_PERSISTENCE_WARNING =
+  'This host has a read-only filesystem, so edits saved to content/content.json are lost when the server restarts. Connect Supabase so saves go to the database instead.'
 
 /** Only for tests. */
 export function resetCache() {

@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { isConfigured } from '@/lib/supabase/admin'
 import { hasLiveData, getMessages } from '@/lib/data-admin'
 import { getSource, getSourceSummary } from '@/lib/data'
+import { isStorePersistable, STORE_PERSISTENCE_WARNING } from '@/lib/store'
 import { SeedButton } from './SeedButton'
 
 export const metadata = { title: 'Admin — Overview' }
@@ -26,6 +27,11 @@ export default async function AdminHome() {
 
   const source = await getSource()
   const summary = live ? await getSourceSummary() : null
+
+  // Reads only fall back to the local store. If the host cannot write to disk
+  // — every serverless platform, Vercel included — saving there would report
+  // success and then lose the edit on the next cold start.
+  const storeWritable = !live ? await isStorePersistable() : true
 
   // The schema exists but nothing has been copied into it yet. Reads fall back
   // to content/content.json, so the site looks fine — but a new record created
@@ -64,6 +70,12 @@ export default async function AdminHome() {
         <Banner tone="amber">
           Supabase is connected but its tables are empty, so the site is serving{' '}
           <code>content/content.json</code>. Seed it below so both agree.
+        </Banner>
+      )}
+
+      {!storeWritable && (
+        <Banner tone="red">
+          <strong>Saving will not work on this host.</strong> {STORE_PERSISTENCE_WARNING}
         </Banner>
       )}
 

@@ -6,7 +6,7 @@ import { admin } from '@/lib/supabase/admin'
 import { createServerSupabase, isAdmin } from '@/lib/supabase/server'
 import { isConfigured } from '@/lib/supabase/admin'
 import { localSignIn, localSignOut } from '@/lib/localAuth'
-import { readContent, writeContent } from '@/lib/store'
+import { readContent, writeContent, STORE_PERSISTENCE_WARNING } from '@/lib/store'
 import { hasLiveData } from '@/lib/data'
 import type { Database } from '@/lib/supabase/database.types'
 
@@ -199,10 +199,18 @@ export async function saveRow(
   const live = await hasLiveData()
 
   if (!live) {
-    await saveLocal(WRITABLE[table], id, payload, table)
+    const result = await saveLocal(WRITABLE[table], id, payload, table)
     revalidatePath('/admin')
     revalidatePath('/', 'layout')
-    return { ok: true, message: id ? 'Saved to local content.' : 'Created in local content.' }
+    return result.persisted
+      ? {
+          ok: true,
+          message: id ? 'Saved to local content.' : 'Created in local content.',
+        }
+      : {
+          ok: false,
+          error: STORE_PERSISTENCE_WARNING,
+        }
   }
 
   const db = loose()
@@ -218,16 +226,23 @@ export async function saveRow(
 }
 
 /** Apply an edit to the JSON store, translating column names to store keys. */
-async function saveLocal(collection: string, id: string, payload: Record<string, unknown>, table: string) {
+async function saveLocal(
+  collection: string,
+  id: string,
+  payload: Record<string, unknown>,
+  table: string,
+): Promise<{ persisted: boolean }> {
   const content = await readContent()
 
   if (collection === 'profile') {
-    await writeContent({ profile: { ...content.profile, ...mapProfile(payload) } })
-    return
+    const result = await writeContent({
+      profile: { ...content.profile, ...mapProfile(payload) },
+    })
+    return { persisted: result.persisted }
   }
 
   const list = (content as Record<string, unknown>)[collection]
-  if (!Array.isArray(list)) return
+  if (!Array.isArray(list)) return { persisted: false }
 
   const mapped: Record<string, unknown> = {}
   for (const [k, v] of Object.entries(payload)) {
@@ -241,8 +256,9 @@ async function saveLocal(collection: string, id: string, payload: Record<string,
     list.push({ ...mapped, id: `local-${Date.now().toString(36)}` })
   }
 
-  await writeContent({ [collection]: list } as never)
+  const result = await writeContent({ [collection]: list } as never)
   void table
+  return { persisted: result.persisted }
 }
 
 /** The profile form is its own action, so it has its own translation. */
@@ -263,9 +279,10 @@ export async function deleteRow(formData: FormData): Promise<void> {
     const collection = WRITABLE[table]
     const list = (content as Record<string, unknown>)[collection]
     if (Array.isArray(list)) {
-      await writeContent({
+      const result = await writeContent({
         [collection]: list.filter((r) => (r as Record<string, unknown>).id !== id),
       } as never)
+      if (!result.persisted) throw new Error(STORE_PERSISTENCE_WARNING)
     }
   } else {
     await loose().from(table).delete().eq('id', id)
@@ -346,7 +363,7 @@ export async function saveProfile(_prev: ActionState, formData: FormData): Promi
   }
 
   if (!(await hasLiveData())) {
-    await writeContent({
+    const result = await writeContent({
       profile: {
         name: row.name,
         tagline: row.tagline,
@@ -359,7 +376,9 @@ export async function saveProfile(_prev: ActionState, formData: FormData): Promi
     })
     revalidatePath('/admin')
     revalidatePath('/', 'layout')
-    return { ok: true, message: 'Profile saved to local content.' }
+    return result.persisted
+      ? { ok: true, message: 'Profile saved to local content.' }
+      : { ok: false, error: STORE_PERSISTENCE_WARNING }
   }
 
   const db = admin()
